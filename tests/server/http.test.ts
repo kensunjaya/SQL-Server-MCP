@@ -10,6 +10,11 @@ import type { Logger } from '../../src/utils/logger.js';
 const logger: Logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 const handles: HttpServerHandle[] = [];
 
+interface TestResponse {
+  status: number;
+  authenticate?: string;
+}
+
 function requestStatus(url: string, host: string): Promise<number> {
   const target = new URL(url);
   return new Promise((resolve, reject) => {
@@ -31,13 +36,24 @@ function requestStatus(url: string, host: string): Promise<number> {
   });
 }
 
+async function request(url: string, headers: Record<string, string> = {}): Promise<TestResponse> {
+  const response = await fetch(url, { headers });
+  await response.body?.cancel();
+  const authenticate = response.headers.get('www-authenticate');
+  return {
+    status: response.status,
+    ...(authenticate === null ? {} : { authenticate })
+  };
+}
+
 function dependencies() {
   const config = loadConfig({
     DB_SERVER: 'localhost',
     DB_DATABASE: 'PosDb',
     DB_USER: 'user',
     DB_PASSWORD: 'password',
-    MCP_TRANSPORT: 'http'
+    MCP_TRANSPORT: 'http',
+    MCP_HTTP_BEARER_TOKEN: 'test-secret'
   });
   const executor = {
     select: vi.fn(),
@@ -65,6 +81,32 @@ afterEach(async () => {
 });
 
 describe('Streamable HTTP server', () => {
+  it('requires the configured bearer token', async () => {
+    const setup = dependencies();
+    const config = {
+      ...setup.config,
+      transport: { ...setup.config.transport, httpPort: 0 }
+    };
+    const handle = await startHttp(() => createMcpServer(setup.dependencies), config, logger);
+    handles.push(handle);
+
+    expect(await request(handle.url)).toMatchObject({
+      status: 401,
+      authenticate: 'Bearer'
+    });
+    expect(await request(handle.url, { authorization: 'Basic test-secret' })).toMatchObject({
+      status: 401
+    });
+    expect(await request(handle.url, { authorization: 'Bearer wrong-secret' })).toMatchObject({
+      status: 401
+    });
+
+    const authenticated = await request(handle.url, {
+      authorization: 'Bearer test-secret'
+    });
+    expect(authenticated.status).not.toBe(401);
+  });
+
   it('mounts only the configured MCP path and validates Host', async () => {
     const setup = dependencies();
     const config = {
@@ -96,5 +138,21 @@ describe('Streamable HTTP server', () => {
     await expect(
       startHttp(() => createMcpServer(setup.dependencies), config, logger)
     ).rejects.toMatchObject({ code: 'CONFIGURATION_ERROR' });
+  });
+
+  it('defensively rejects an HTTP config without a bearer token', async () => {
+    const setup = dependencies();
+    const { httpBearerToken: _httpBearerToken, ...transport } = setup.config.transport;
+    const config = {
+      ...setup.config,
+      transport: { ...transport, httpPort: 0 }
+    };
+
+    await expect(
+      startHttp(() => createMcpServer(setup.dependencies), config, logger)
+    ).rejects.toMatchObject({
+      code: 'CONFIGURATION_ERROR',
+      message: expect.stringContaining('MCP_HTTP_BEARER_TOKEN')
+    });
   });
 });

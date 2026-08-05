@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import {
   createMcpHandler,
   hostHeaderValidationResponse,
@@ -20,6 +21,33 @@ function isLoopback(host: string): boolean {
   return ['127.0.0.1', 'localhost', '::1'].includes(host.toLowerCase());
 }
 
+function tokensMatch(actual: string, expected: string): boolean {
+  const actualBuffer = Buffer.from(actual, 'utf8');
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  return (
+    actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer)
+  );
+}
+
+function bearerAuthenticationResponse(
+  request: Request,
+  expectedToken: string
+): Response | undefined {
+  const authorization = request.headers.get('authorization');
+  const match = /^Bearer +(\S+)$/i.exec(authorization ?? '');
+  if (match?.[1] !== undefined && tokensMatch(match[1], expectedToken)) {
+    return undefined;
+  }
+
+  return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    status: 401,
+    headers: {
+      'content-type': 'application/json',
+      'www-authenticate': 'Bearer'
+    }
+  });
+}
+
 function closeHttpServer(server: http.Server): Promise<void> {
   return new Promise((resolve, reject) => {
     server.close((error) => (error === undefined ? resolve() : reject(error)));
@@ -31,7 +59,13 @@ export async function startHttp(
   config: AppConfig,
   logger: Logger
 ): Promise<HttpServerHandle> {
-  const { httpHost, httpPort, httpPath, httpAllowedHosts } = config.transport;
+  const { httpHost, httpPort, httpPath, httpAllowedHosts, httpBearerToken } = config.transport;
+  if (httpBearerToken === undefined) {
+    throw new AppError(
+      'CONFIGURATION_ERROR',
+      'MCP_HTTP_BEARER_TOKEN is required for the HTTP transport'
+    );
+  }
   if (!isLoopback(httpHost) && httpAllowedHosts.length === 0) {
     throw new AppError(
       'CONFIGURATION_ERROR',
@@ -48,8 +82,12 @@ export async function startHttp(
     onerror: (error) => logger.error('HTTP MCP handler error', { message: error.message })
   });
   const securedHandler = {
-    fetch: (request: Request) =>
-      Promise.resolve(hostHeaderValidationResponse(request, allowedHosts) ?? handler.fetch(request))
+    fetch: (request: Request) => {
+      const rejection =
+        hostHeaderValidationResponse(request, allowedHosts) ??
+        bearerAuthenticationResponse(request, httpBearerToken);
+      return Promise.resolve(rejection ?? handler.fetch(request));
+    }
   };
   const nodeHandler = toNodeHandler(securedHandler, {
     onerror: (error) => logger.error('HTTP MCP adapter error', { message: error.message })
