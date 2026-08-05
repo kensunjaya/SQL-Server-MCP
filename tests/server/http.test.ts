@@ -142,7 +142,8 @@ describe('Streamable HTTP server', () => {
 
   it('defensively rejects an HTTP config without a bearer token', async () => {
     const setup = dependencies();
-    const { httpBearerToken: _httpBearerToken, ...transport } = setup.config.transport;
+    const transport = { ...setup.config.transport };
+    delete transport.httpBearerToken;
     const config = {
       ...setup.config,
       transport: { ...transport, httpPort: 0 }
