@@ -22,10 +22,12 @@
 ### Task 1: Validate and expose the HTTP bearer token
 
 **Files:**
+
 - Modify: `tests/config/config.test.ts`
 - Modify: `src/config/config.ts`
 
 **Interfaces:**
+
 - Consumes: `loadConfig(env?: NodeJS.ProcessEnv): AppConfig`
 - Produces: `AppConfig.transport.httpBearerToken?: string`
 
@@ -88,10 +90,12 @@ git commit -m "feat: require bearer token for HTTP transport"
 ### Task 2: Enforce bearer authentication at the HTTP boundary
 
 **Files:**
+
 - Modify: `tests/server/http.test.ts`
 - Modify: `src/server/http.ts`
 
 **Interfaces:**
+
 - Consumes: `AppConfig.transport.httpBearerToken?: string`
 - Produces: `bearerAuthenticationResponse(request: Request, expectedToken: string): Response | undefined`
 - Produces: authenticated behavior in `startHttp(factory, config, logger)`
@@ -106,10 +110,7 @@ interface TestResponse {
   authenticate?: string;
 }
 
-function request(
-  url: string,
-  headers: Record<string, string> = {}
-): Promise<TestResponse> {
+function request(url: string, headers: Record<string, string> = {}): Promise<TestResponse> {
   // Issue an HTTP GET, drain the body, and resolve status plus
   // response.headers['www-authenticate'].
 }
@@ -126,12 +127,12 @@ expect(await request(handle.url)).toMatchObject({
   status: 401,
   authenticate: 'Bearer'
 });
-expect(
-  await request(handle.url, { authorization: 'Basic test-secret' })
-).toMatchObject({ status: 401 });
-expect(
-  await request(handle.url, { authorization: 'Bearer wrong-secret' })
-).toMatchObject({ status: 401 });
+expect(await request(handle.url, { authorization: 'Basic test-secret' })).toMatchObject({
+  status: 401
+});
+expect(await request(handle.url, { authorization: 'Bearer wrong-secret' })).toMatchObject({
+  status: 401
+});
 ```
 
 For the correct token, assert that the request is no longer rejected as unauthorized:
@@ -158,8 +159,7 @@ function tokensMatch(actual: string, expected: string): boolean {
   const actualBuffer = Buffer.from(actual, 'utf8');
   const expectedBuffer = Buffer.from(expected, 'utf8');
   return (
-    actualBuffer.length === expectedBuffer.length &&
-    timingSafeEqual(actualBuffer, expectedBuffer)
+    actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer)
   );
 }
 ```
@@ -194,10 +194,12 @@ git commit -m "feat: authenticate HTTP MCP requests"
 ### Task 3: Document server and Codex client configuration
 
 **Files:**
+
 - Modify: `.env.example`
 - Modify: `README.md`
 
 **Interfaces:**
+
 - Consumes: `MCP_HTTP_BEARER_TOKEN` and the `Authorization: Bearer` contract
 - Produces: setup instructions for direct HTTP clients and Codex
 
@@ -242,9 +244,11 @@ git commit -m "docs: explain HTTP bearer token setup"
 ### Task 4: Verify the complete change
 
 **Files:**
+
 - Verify: all source, tests, and documentation changed in Tasks 1-3
 
 **Interfaces:**
+
 - Consumes: completed bearer-authentication implementation
 - Produces: a clean build and verified repository state
 

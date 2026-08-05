@@ -90,6 +90,7 @@ All configuration comes from environment variables. `.env` is loaded for command
 | `MCP_HTTP_PORT`               |             No | `3000`         | HTTP listen port.                                                                            |
 | `MCP_HTTP_PATH`               |             No | `/mcp`         | Streamable HTTP endpoint path.                                                               |
 | `MCP_HTTP_ALLOWED_HOSTS`      | No on loopback | —              | Comma-separated Host-header allowlist. Required for non-loopback binding.                    |
+| `MCP_HTTP_BEARER_TOKEN`       |   In HTTP mode | —              | Shared bearer token for HTTP clients. Never commit it. Ignored by stdio.                     |
 | `LOG_LEVEL`                   |             No | `info`         | `debug`, `info`, `warn`, or `error`.                                                         |
 
 Boolean settings accept `true`, `false`, `1`, or `0`.
@@ -150,6 +151,7 @@ MCP_TRANSPORT=http
 MCP_HTTP_HOST=127.0.0.1
 MCP_HTTP_PORT=3000
 MCP_HTTP_PATH=/mcp
+MCP_HTTP_BEARER_TOKEN=replace_with_a_long_random_secret
 ```
 
 Then run:
@@ -158,9 +160,23 @@ Then run:
 npm start
 ```
 
-The endpoint is `http://127.0.0.1:3000/mcp`. The v2 handler serves current MCP clients and a stateless legacy fallback from the same tool factory.
+The endpoint is `http://127.0.0.1:3000/mcp`. Clients must send `Authorization: Bearer <token>`. Missing or incorrect credentials receive `401 Unauthorized`. The v2 handler serves current MCP clients and a stateless legacy fallback from the same tool factory.
 
-This project intentionally does not include HTTP authentication or TLS termination. Do not expose the endpoint to an untrusted network as-is. For remote clients, place it behind TLS, authentication, a restrictive firewall/reverse proxy, and a precise `MCP_HTTP_ALLOWED_HOSTS` list.
+The token provides shared-secret authentication but not encryption. Do not expose plain HTTP to an untrusted network. For remote clients, use TLS, a restrictive firewall or reverse proxy, and a precise `MCP_HTTP_ALLOWED_HOSTS` list.
+
+### Codex over Streamable HTTP
+
+Start the server as described above. In the shell that launches Codex, set the same token and register the endpoint:
+
+```powershell
+$env:MCP_HTTP_BEARER_TOKEN = "replace_with_the_same_secret_used_by_the_server"
+codex mcp add pos_sql_http `
+  --url http://127.0.0.1:3000/mcp `
+  --bearer-token-env-var MCP_HTTP_BEARER_TOKEN
+codex mcp list
+```
+
+Codex stores only the environment-variable name in its MCP configuration. The Codex process must have `MCP_HTTP_BEARER_TOKEN` in its environment whenever it connects, so launch it from that shell or configure the variable through your usual secret-management process.
 
 ## Tool reference
 
@@ -393,8 +409,8 @@ Anything written to stdout corrupts the MCP channel. This implementation logs to
 
 ### HTTP works locally but not remotely
 
-Non-loopback binding requires `MCP_HTTP_ALLOWED_HOSTS`. Remote use also needs firewall routing, TLS, and authentication provided by infrastructure in front of this server.
+Non-loopback binding requires `MCP_HTTP_ALLOWED_HOSTS`. Confirm that the client sends the configured bearer token. Remote use also needs firewall routing and TLS, usually provided by infrastructure in front of this server.
 
 ## Production hardening extension points
 
-For wider deployment, add authentication/authorization, TLS, per-client policy, schema/table/procedure allowlists, mutation confirmation, audit storage, rate limiting, monitoring, and a full T-SQL parser. These can be added around the existing transport, tool, and database-service boundaries.
+For wider deployment, replace or augment the shared token with per-client authentication and authorization, then add TLS, schema/table/procedure allowlists, mutation confirmation, audit storage, rate limiting, monitoring, and a full T-SQL parser. These can be added around the existing transport, tool, and database-service boundaries.
