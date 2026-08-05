@@ -1,14 +1,14 @@
 export interface SqlParameter {
   name: string;
   value: unknown;
-  type?: string;
-  length?: number | 'MAX';
-  precision?: number;
-  scale?: number;
+  type?: string | undefined;
+  length?: number | 'MAX' | undefined;
+  precision?: number | undefined;
+  scale?: number | undefined;
 }
 
 export interface ProcedureParameter extends SqlParameter {
-  direction?: 'input' | 'output' | 'inputOutput';
+  direction?: 'input' | 'output' | 'inputOutput' | undefined;
 }
 
 export interface BoundedRecordsets {
@@ -37,7 +37,7 @@ export interface ProcedureResult extends MutationResult {
 export interface TransactionStep {
   operation: 'select' | 'insert' | 'update' | 'delete';
   sql: string;
-  parameters?: SqlParameter[];
+  parameters?: SqlParameter[] | undefined;
 }
 
 export interface TransactionStepResult extends BoundedRecordsets {

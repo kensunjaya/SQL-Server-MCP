@@ -82,9 +82,9 @@ export class SqlExecutor {
 
   async select(input: {
     sql: string;
-    parameters?: SqlParameter[];
-    offset?: number;
-    limit?: number;
+    parameters?: SqlParameter[] | undefined;
+    offset?: number | undefined;
+    limit?: number | undefined;
   }): Promise<QueryResult> {
     const validated = validateSql(input.sql, 'select', this.config.limits.maxSqlLength);
     const offset = input.offset ?? 0;
@@ -117,7 +117,7 @@ export class SqlExecutor {
 
   async mutate(
     kind: 'insert' | 'update' | 'delete',
-    input: { sql: string; parameters?: SqlParameter[] }
+    input: { sql: string; parameters?: SqlParameter[] | undefined }
   ): Promise<MutationResult> {
     this.checkMutation(kind);
     const validated = validateSql(input.sql, kind, this.config.limits.maxSqlLength);
@@ -143,7 +143,7 @@ export class SqlExecutor {
 
   async executeProcedure(input: {
     procedure: string;
-    parameters?: ProcedureParameter[];
+    parameters?: ProcedureParameter[] | undefined;
   }): Promise<ProcedureResult> {
     if (!this.config.features.allowProcedures) {
       throw new AppError('FEATURE_DISABLED', 'Stored procedure execution is disabled');
@@ -282,7 +282,7 @@ export class SqlExecutor {
     }
   }
 
-  async explain(input: { sql: string; parameters?: SqlParameter[] }): Promise<{
+  async explain(input: { sql: string; parameters?: SqlParameter[] | undefined }): Promise<{
     planXml: string;
     executionTimeMs: number;
   }> {

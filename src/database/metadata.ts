@@ -103,7 +103,7 @@ export class MetadataService {
     return request.query(command);
   }
 
-  async listTables(input: { offset?: number; limit?: number } = {}): Promise<MetadataPage<Record<string, unknown>>> {
+  async listTables(input: { offset?: number | undefined; limit?: number | undefined } = {}): Promise<MetadataPage<Record<string, unknown>>> {
     const { offset, limit } = this.page(input.offset, input.limit);
     const start = performance.now();
     const result = await this.execute(
@@ -137,7 +137,7 @@ export class MetadataService {
     };
   }
 
-  async listViews(input: { offset?: number; limit?: number } = {}): Promise<MetadataPage<Record<string, unknown>>> {
+  async listViews(input: { offset?: number | undefined; limit?: number | undefined } = {}): Promise<MetadataPage<Record<string, unknown>>> {
     const { offset, limit } = this.page(input.offset, input.limit);
     const start = performance.now();
     const result = await this.execute(
@@ -170,9 +170,9 @@ export class MetadataService {
 
   async searchObjects(input: {
     search: string;
-    objectType?: 'table' | 'view' | 'all';
-    offset?: number;
-    limit?: number;
+    objectType?: 'table' | 'view' | 'all' | undefined;
+    offset?: number | undefined;
+    limit?: number | undefined;
   }): Promise<MetadataPage<Record<string, unknown>>> {
     const search = input.search.trim();
     if (search === '') throw new AppError('VALIDATION_ERROR', 'Search text cannot be empty');
@@ -209,7 +209,7 @@ export class MetadataService {
     };
   }
 
-  async describeTable(input: { schema?: string; table: string }): Promise<Record<string, unknown>> {
+  async describeTable(input: { schema?: string | undefined; table: string }): Promise<Record<string, unknown>> {
     const schema = input.schema?.trim() || 'dbo';
     const table = input.table.trim();
     if (table === '') throw new AppError('VALIDATION_ERROR', 'Table name cannot be empty');
@@ -310,7 +310,7 @@ export class MetadataService {
     };
   }
 
-  async getDatabaseSchema(input: { offset?: number; limit?: number } = {}): Promise<Record<string, unknown>> {
+  async getDatabaseSchema(input: { offset?: number | undefined; limit?: number | undefined } = {}): Promise<Record<string, unknown>> {
     const { offset, limit } = this.page(input.offset, input.limit);
     const start = performance.now();
     const result = await this.execute(
