@@ -26,7 +26,7 @@ function request(result: unknown): RequestLike {
 }
 
 function service(results: unknown[]) {
-  const requests = results.map(result => request(result));
+  const requests = results.map((result) => request(result));
   const used: RequestLike[] = [];
   const driver: Pick<ExecutorDriver, 'request'> = {
     request: vi.fn(() => {
@@ -44,7 +44,14 @@ beforeEach(() => vi.clearAllMocks());
 describe('MetadataService', () => {
   it('lists tables from SQL Server catalogs with pagination', async () => {
     const { metadata, used } = service([
-      { recordsets: [[{ schemaName: 'dbo', tableName: 'Items' }, { schemaName: 'sales', tableName: 'Orders' }]] }
+      {
+        recordsets: [
+          [
+            { schemaName: 'dbo', tableName: 'Items' },
+            { schemaName: 'sales', tableName: 'Orders' }
+          ]
+        ]
+      }
     ]);
     const result = await metadata.listTables({ limit: 1 });
     expect(result).toMatchObject({ returned: 1, hasMore: true });
@@ -60,11 +67,7 @@ describe('MetadataService', () => {
     await metadata.searchObjects({ search: "50%_sale'", objectType: 'table' });
     const queryText = vi.mocked(used[0]!.query).mock.calls[0]?.[0] ?? '';
     expect(queryText).not.toContain("50%_sale'");
-    expect(used[0]?.input).toHaveBeenCalledWith(
-      'pattern',
-      expect.anything(),
-      "%50[%][_]sale'%"
-    );
+    expect(used[0]?.input).toHaveBeenCalledWith('pattern', expect.anything(), "%50[%][_]sale'%");
   });
 
   it('describes columns, primary keys, and both foreign-key directions', async () => {
@@ -102,7 +105,9 @@ describe('MetadataService', () => {
 
   it('reports a missing table without exposing SQL', async () => {
     const { metadata } = service([{ recordsets: [[]] }]);
-    await expect(metadata.describeTable({ schema: 'sales', table: 'Missing' })).rejects.toMatchObject({
+    await expect(
+      metadata.describeTable({ schema: 'sales', table: 'Missing' })
+    ).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
       message: 'Table not found: sales.Missing'
     });
@@ -111,16 +116,36 @@ describe('MetadataService', () => {
   it('returns a bounded database schema page', async () => {
     const { metadata } = service([
       {
-        recordsets: [[
-          { schemaName: 'dbo', objectName: 'Items', objectType: 'table', columnsJson: '[{"columnName":"Id"}]' },
-          { schemaName: 'dbo', objectName: 'Stores', objectType: 'table', columnsJson: '[]' }
-        ]]
+        recordsets: [
+          [
+            {
+              schemaName: 'dbo',
+              objectName: 'Items',
+              objectType: 'table',
+              columnsJson: '[{"columnName":"Id","primaryKeyOrdinal":1}]',
+              foreignKeysJson: '[]'
+            },
+            {
+              schemaName: 'dbo',
+              objectName: 'Stores',
+              objectType: 'table',
+              columnsJson: '[]',
+              foreignKeysJson: '[]'
+            }
+          ]
+        ]
       }
     ]);
     const result = await metadata.getDatabaseSchema({ limit: 1 });
     expect(result).toMatchObject({ returnedObjects: 1, hasMore: true });
     expect(result.objects).toEqual([
-      { schemaName: 'dbo', objectName: 'Items', objectType: 'table', columns: [{ columnName: 'Id' }] }
+      {
+        schemaName: 'dbo',
+        objectName: 'Items',
+        objectType: 'table',
+        columns: [{ columnName: 'Id', primaryKeyOrdinal: 1 }],
+        foreignKeys: []
+      }
     ]);
   });
 });

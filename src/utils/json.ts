@@ -16,7 +16,7 @@ function convert(value: unknown, ancestors: WeakSet<object>): unknown {
 
   ancestors.add(value);
   try {
-    if (Array.isArray(value)) return value.map(item => convert(item, ancestors));
+    if (Array.isArray(value)) return value.map((item) => convert(item, ancestors));
     const plain: Record<string, unknown> = {};
     for (const [key, item] of Object.entries(value)) plain[key] = convert(item, ancestors);
     return plain;
@@ -48,7 +48,7 @@ export function boundRecordsets(
     const source = recordsetIndex === 0 ? recordset.slice(offset) : recordset;
     const take = Math.min(source.length, remaining);
     if (take < source.length) truncated = true;
-    const rows = source.slice(0, take).map(row => {
+    const rows = source.slice(0, take).map((row) => {
       const converted = toJsonValue(row);
       if (typeof converted !== 'object' || converted === null || Array.isArray(converted)) {
         return { value: converted };

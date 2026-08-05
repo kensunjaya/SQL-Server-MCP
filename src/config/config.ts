@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { z } from 'zod/v4';
+import { AppError } from '../utils/errors.js';
 
 export interface AppConfig {
   database: {
@@ -36,20 +37,20 @@ const booleanValue = (defaultValue: boolean) =>
   z
     .enum(['true', 'false', '1', '0'])
     .default(defaultValue ? 'true' : 'false')
-    .transform(value => value === 'true' || value === '1');
+    .transform((value) => value === 'true' || value === '1');
 
 const integerValue = (defaultValue: number, minimum: number, maximum = Number.MAX_SAFE_INTEGER) =>
   z
     .string()
     .default(String(defaultValue))
-    .refine(value => /^\d+$/.test(value), 'must be a whole number')
+    .refine((value) => /^\d+$/.test(value), 'must be a whole number')
     .transform(Number)
     .pipe(z.number().int().min(minimum).max(maximum));
 
 const optionalInteger = z
   .string()
   .optional()
-  .transform(value => (value === undefined || value === '' ? undefined : Number(value)))
+  .transform((value) => (value === undefined || value === '' ? undefined : Number(value)))
   .pipe(z.number().int().min(1).max(65_535).optional());
 
 const envSchema = z
@@ -99,8 +100,10 @@ const envSchema = z
   });
 
 function formatConfigError(error: z.ZodError): Error {
-  const fields = error.issues.map(issue => `${issue.path.join('.') || 'environment'}: ${issue.message}`);
-  return new Error(`Invalid configuration: ${fields.join('; ')}`);
+  const fields = error.issues.map(
+    (issue) => `${issue.path.join('.') || 'environment'}: ${issue.message}`
+  );
+  return new AppError('CONFIGURATION_ERROR', `Invalid configuration: ${fields.join('; ')}`);
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -116,7 +119,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const value = parsed.data;
   const normalizedPath = `/${value.MCP_HTTP_PATH.replace(/^\/+/, '')}`;
   const allowedHosts = value.MCP_HTTP_ALLOWED_HOSTS.split(',')
-    .map(host => host.trim())
+    .map((host) => host.trim())
     .filter(Boolean);
 
   return Object.freeze({

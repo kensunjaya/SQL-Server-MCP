@@ -12,7 +12,7 @@ export class PoolManager {
   constructor(
     private readonly config: AppConfig,
     private readonly logger: Logger,
-    private readonly poolFactory: PoolFactory = poolConfig => new sql.ConnectionPool(poolConfig)
+    private readonly poolFactory: PoolFactory = (poolConfig) => new sql.ConnectionPool(poolConfig)
   ) {}
 
   private createPoolConfig(): sql.config {
@@ -42,7 +42,7 @@ export class PoolManager {
     if (this.connectionPromise !== undefined) return this.connectionPromise;
 
     const pool = this.poolFactory(this.createPoolConfig());
-    pool.on('error', error => {
+    pool.on('error', (error) => {
       this.logger.error('SQL Server connection pool error', {
         driverCode:
           typeof (error as { code?: unknown }).code === 'string'
@@ -61,9 +61,14 @@ export class PoolManager {
       .catch((error: unknown) => {
         if (this.connectionPromise === attempt) this.connectionPromise = undefined;
         if (this.pool === pool) this.pool = undefined;
-        throw new AppError('DATABASE_CONNECTION_ERROR', 'Could not connect to SQL Server', undefined, {
-          cause: error
-        });
+        throw new AppError(
+          'DATABASE_CONNECTION_ERROR',
+          'Could not connect to SQL Server',
+          undefined,
+          {
+            cause: error
+          }
+        );
       });
 
     this.connectionPromise = attempt;

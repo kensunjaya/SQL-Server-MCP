@@ -21,7 +21,7 @@ function requestStatus(url: string, host: string): Promise<number> {
         method: 'GET',
         headers: { host }
       },
-      response => {
+      (response) => {
         response.resume();
         resolve(response.statusCode ?? 0);
       }
@@ -44,7 +44,9 @@ function dependencies() {
     mutate: vi.fn(),
     executeProcedure: vi.fn(),
     executeTransaction: vi.fn(),
-    health: vi.fn().mockResolvedValue({ ok: true, database: 'PosDb', poolConnected: true, executionTimeMs: 1 }),
+    health: vi
+      .fn()
+      .mockResolvedValue({ ok: true, database: 'PosDb', poolConnected: true, executionTimeMs: 1 }),
     version: vi.fn(),
     explain: vi.fn()
   };
@@ -59,7 +61,7 @@ function dependencies() {
 }
 
 afterEach(async () => {
-  await Promise.all(handles.splice(0).map(handle => handle.close()));
+  await Promise.all(handles.splice(0).map((handle) => handle.close()));
 });
 
 describe('Streamable HTTP server', () => {

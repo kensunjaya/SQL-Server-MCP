@@ -28,19 +28,20 @@ function request(result: unknown): RequestLike {
 }
 
 function setup(results: unknown[], transaction?: TransactionLike) {
-  const requests = results.map(result => request(result));
+  const requests = results.map((result) => request(result));
   const driver: ExecutorDriver = {
     request: vi.fn(() => {
       const next = requests.shift();
       if (next === undefined) throw new Error('No fake request available');
       return next;
     }),
-    transaction: vi.fn(() =>
-      transaction ?? {
-        begin: vi.fn().mockResolvedValue(undefined),
-        commit: vi.fn().mockResolvedValue(undefined),
-        rollback: vi.fn().mockResolvedValue(undefined)
-      }
+    transaction: vi.fn(
+      () =>
+        transaction ?? {
+          begin: vi.fn().mockResolvedValue(undefined),
+          commit: vi.fn().mockResolvedValue(undefined),
+          rollback: vi.fn().mockResolvedValue(undefined)
+        }
     )
   };
   return { driver, executor: new SqlExecutor(pools, loadConfig(baseEnv), driver) };

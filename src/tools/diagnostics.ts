@@ -11,7 +11,12 @@ export interface DiagnosticToolsService {
   explain: SqlExecutor['explain'];
 }
 
-const readOnly = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+const readOnly = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false
+};
 
 export function registerDiagnosticTools(
   server: McpServer,
@@ -36,13 +41,17 @@ export function registerDiagnosticTools(
     'get_database_version',
     {
       title: 'Get SQL Server version',
-      description: 'Return SQL Server product version, level, edition, engine edition, and version text.',
+      description:
+        'Return SQL Server product version, level, edition, engine edition, and version text.',
       inputSchema: z.object({}).strict(),
       annotations: readOnly
     },
     withToolErrors('get_database_version', logger, async () => {
       const result = await executor.version();
-      return successResult(`SQL Server version ${String(result.productVersion ?? 'unknown')}.`, result);
+      return successResult(
+        `SQL Server version ${String(result.productVersion ?? 'unknown')}.`,
+        result
+      );
     })
   );
 
@@ -50,11 +59,12 @@ export function registerDiagnosticTools(
     'explain_query',
     {
       title: 'Explain a SELECT query',
-      description: 'Compile a parameterized SELECT and return its estimated XML plan without executing it.',
+      description:
+        'Compile a parameterized SELECT and return its estimated XML plan without executing it.',
       inputSchema: explainSchema,
       annotations: readOnly
     },
-    withToolErrors('explain_query', logger, async args => {
+    withToolErrors('explain_query', logger, async (args) => {
       const result = await executor.explain(args);
       return successResult(`Generated estimated plan in ${result.executionTimeMs} ms.`, result);
     })

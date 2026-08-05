@@ -26,7 +26,9 @@ describe('stdio entry point', () => {
     try {
       await client.connect(transport);
       expect(['modern', 'legacy']).toContain(client.getProtocolEra());
-      expect((await client.listTools()).tools.some(tool => tool.name === 'execute_select')).toBe(true);
+      expect((await client.listTools()).tools.some((tool) => tool.name === 'execute_select')).toBe(
+        true
+      );
     } finally {
       await client.close();
     }

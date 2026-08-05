@@ -39,12 +39,11 @@ export async function main(): Promise<void> {
 
   process.once('SIGINT', () => void shutdown('SIGINT'));
   process.once('SIGTERM', () => void shutdown('SIGTERM'));
-
 }
 
 const entryPath = process.argv[1];
 if (entryPath !== undefined && import.meta.url === pathToFileURL(entryPath).href) {
-  main().catch(error => {
+  main().catch((error) => {
     const safe = normalizeError(error);
     process.stderr.write(
       `${JSON.stringify({

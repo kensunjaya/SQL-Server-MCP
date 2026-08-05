@@ -58,6 +58,7 @@
 ### Task 1: Project Foundation and Validated Configuration
 
 **Files:**
+
 - Create: `package.json`
 - Create: `tsconfig.json`
 - Create: `eslint.config.js`
@@ -69,6 +70,7 @@
 - Test: `tests/config/config.test.ts`
 
 **Interfaces:**
+
 - Produces: `loadConfig(env?: NodeJS.ProcessEnv): AppConfig`
 - Produces: `Logger` with `debug`, `info`, `warn`, and `error` methods.
 - Produces: the exact `AppConfig` sections `database`, `pool`, `limits`, `features`, `transport`, and `logging`.
@@ -234,6 +236,7 @@ git commit -m "chore: scaffold TypeScript MCP server"
 ### Task 2: SQL Identifiers and Statement Guardrails
 
 **Files:**
+
 - Create: `src/utils/errors.ts`
 - Create: `src/sql/identifiers.ts`
 - Create: `src/sql/guardrails.ts`
@@ -241,6 +244,7 @@ git commit -m "chore: scaffold TypeScript MCP server"
 - Test: `tests/sql/guardrails.test.ts`
 
 **Interfaces:**
+
 - Produces: `AppError(code, message, details?)` and `normalizeError(error): SafeError`.
 - Produces: `parseMultipartIdentifier(value, maxParts): string[]` and `quoteIdentifierParts(parts): string`.
 - Produces: `validateSql(sql, expectedKind, maxLength): ValidatedSql` where `expectedKind` is `'select' | 'insert' | 'update' | 'delete'`.
@@ -264,7 +268,7 @@ it.each([
   'SELECT * INTO dbo.Copy FROM dbo.Sales',
   'WITH x AS (DELETE FROM dbo.Sales OUTPUT deleted.Id) SELECT * FROM x',
   'EXEC dbo.RebuildEverything'
-])('rejects unsafe select input: %s', sql => {
+])('rejects unsafe select input: %s', (sql) => {
   expect(() => validateSql(sql, 'select', 10_000)).toThrow(AppError);
 });
 
@@ -321,8 +325,21 @@ Apply exact operation rules:
 
 ```ts
 const globallyForbidden = new Set([
-  'ALTER', 'BACKUP', 'CREATE', 'DBCC', 'DENY', 'DROP', 'EXEC', 'EXECUTE',
-  'GRANT', 'MERGE', 'RECONFIGURE', 'RESTORE', 'REVOKE', 'TRUNCATE', 'USE'
+  'ALTER',
+  'BACKUP',
+  'CREATE',
+  'DBCC',
+  'DENY',
+  'DROP',
+  'EXEC',
+  'EXECUTE',
+  'GRANT',
+  'MERGE',
+  'RECONFIGURE',
+  'RESTORE',
+  'REVOKE',
+  'TRUNCATE',
+  'USE'
 ]);
 
 const crossOperation: Record<StatementKind, ReadonlySet<string>> = {
@@ -353,6 +370,7 @@ git commit -m "feat: validate SQL operations and identifiers"
 ### Task 3: Parameters, Result Serialization, and Pool Lifecycle
 
 **Files:**
+
 - Create: `src/database/types.ts`
 - Create: `src/database/parameters.ts`
 - Create: `src/database/pool.ts`
@@ -362,6 +380,7 @@ git commit -m "feat: validate SQL operations and identifiers"
 - Test: `tests/utils/json.test.ts`
 
 **Interfaces:**
+
 - Produces: `SqlParameter`, `ProcedureParameter`, `QueryResult`, `MutationResult`, `ProcedureResult`, `TransactionStep`, and `TransactionResult`.
 - Produces: `bindInputParameters(request, parameters)` and `bindProcedureParameters(request, parameters)`.
 - Produces: `PoolManager.getPool(): Promise<sql.ConnectionPool>` and `PoolManager.close(): Promise<void>`.
@@ -461,10 +480,12 @@ git commit -m "feat: add pooled SQL primitives"
 ### Task 4: Query, Procedure, Transaction, and Diagnostic Execution
 
 **Files:**
+
 - Create: `src/database/executor.ts`
 - Test: `tests/database/executor.test.ts`
 
 **Interfaces:**
+
 - Consumes: `PoolManager`, `validateSql`, parameter binders, JSON conversion, `AppConfig`.
 - Produces: class `SqlExecutor` with `select`, `mutate`, `executeProcedure`, `executeTransaction`, `health`, `version`, and `explain`.
 
@@ -481,13 +502,15 @@ await expect(executor.mutate('delete', { sql: 'DELETE FROM T' })).rejects.toMatc
   code: 'FEATURE_DISABLED'
 });
 
-expect(await executor.mutate('update', {
-  sql: 'UPDATE dbo.Items SET Price=@price WHERE Id=@id',
-  parameters: [
-    { name: 'price', type: 'Decimal', precision: 19, scale: 4, value: 9.5 },
-    { name: 'id', type: 'Int', value: 4 }
-  ]
-})).toMatchObject({ affectedRows: 2 });
+expect(
+  await executor.mutate('update', {
+    sql: 'UPDATE dbo.Items SET Price=@price WHERE Id=@id',
+    parameters: [
+      { name: 'price', type: 'Decimal', precision: 19, scale: 4, value: 9.5 },
+      { name: 'id', type: 'Int', value: 4 }
+    ]
+  })
+).toMatchObject({ affectedRows: 2 });
 ```
 
 Also prove elapsed time is present, returned data is bounded, all affected-row entries are summed, a procedure returns recordsets/output/return value, every transaction statement is validated before `begin`, requests bind to one transaction, success commits once, failure rolls back once, rollback failure preserves the original failure as the primary error, health uses `SELECT DB_NAME()`, and version queries `SERVERPROPERTY` values.
@@ -559,10 +582,12 @@ git commit -m "feat: execute SQL operations and transactions"
 ### Task 5: Dynamic Metadata Discovery
 
 **Files:**
+
 - Create: `src/database/metadata.ts`
 - Test: `tests/database/metadata.test.ts`
 
 **Interfaces:**
+
 - Consumes: `PoolManager`, parameter binder, bounds, timer.
 - Produces: class `MetadataService` with `listTables`, `listViews`, `searchObjects`, `describeTable`, and `getDatabaseSchema`.
 
@@ -608,6 +633,7 @@ git commit -m "feat: discover SQL Server metadata"
 ### Task 6: MCP Schemas, Responses, and Tool Registration
 
 **Files:**
+
 - Create: `src/tools/schemas.ts`
 - Create: `src/tools/responses.ts`
 - Create: `src/tools/discovery.ts`
@@ -618,6 +644,7 @@ git commit -m "feat: discover SQL Server metadata"
 - Test: `tests/tools/tools.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SqlExecutor`, `MetadataService`, `AppConfig`, `Logger`.
 - Produces: `registerTools(server, dependencies): void`.
 - Produces: `createMcpServer(dependencies): McpServer`.
@@ -627,22 +654,24 @@ git commit -m "feat: discover SQL Server metadata"
 Connect a v2 `Client` and the server through `InMemoryTransport.createLinkedPair()` for legacy-era unit coverage. Assert exact tool names:
 
 ```ts
-expect((await client.listTools()).tools.map(tool => tool.name).sort()).toEqual([
-  'describe_table',
-  'execute_delete',
-  'execute_insert',
-  'execute_select',
-  'execute_stored_procedure',
-  'execute_transaction',
-  'execute_update',
-  'explain_query',
-  'get_database_schema',
-  'get_database_version',
-  'health_check',
-  'list_tables',
-  'list_views',
-  'search_tables'
-].sort());
+expect((await client.listTools()).tools.map((tool) => tool.name).sort()).toEqual(
+  [
+    'describe_table',
+    'execute_delete',
+    'execute_insert',
+    'execute_select',
+    'execute_stored_procedure',
+    'execute_transaction',
+    'execute_update',
+    'explain_query',
+    'get_database_schema',
+    'get_database_version',
+    'health_check',
+    'list_tables',
+    'list_views',
+    'search_tables'
+  ].sort()
+);
 ```
 
 Run the same assertion with DELETE disabled and expect `execute_delete` to be absent. Call a successful mocked SELECT and assert human text plus `structuredContent`; force an `AppError` and assert `isError: true`, stable code, safe message, and no stack/password; submit invalid Zod input and assert the SDK rejects it before calling the executor.
@@ -716,6 +745,7 @@ git commit -m "feat: expose SQL Server MCP tools"
 ### Task 7: Stdio, Streamable HTTP, Composition, and Protocol Smoke Tests
 
 **Files:**
+
 - Create: `src/server/stdio.ts`
 - Create: `src/server/http.ts`
 - Create: `src/index.ts`
@@ -723,6 +753,7 @@ git commit -m "feat: expose SQL Server MCP tools"
 - Test: `tests/server/protocol.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createMcpServer`, `AppConfig`, `PoolManager`, `Logger`.
 - Produces: `startStdio(factory, logger): ServerHandle`.
 - Produces: `startHttp(factory, config, logger): Promise<ServerHandle>`.
@@ -745,7 +776,7 @@ const client = new Client(
 );
 await client.connect(transport);
 expect(client.getProtocolEra()).toBe('modern');
-expect((await client.listTools()).tools.some(tool => tool.name === 'health_check')).toBe(true);
+expect((await client.listTools()).tools.some((tool) => tool.name === 'health_check')).toBe(true);
 ```
 
 Also spawn the compiled stdio entry with the SDK `StdioClientTransport`, negotiate automatically, list tools, and close cleanly without any non-protocol stdout.
@@ -799,12 +830,14 @@ git commit -m "feat: serve MCP over stdio and HTTP"
 ### Task 8: Documentation, Live Smoke Check, and Final Verification
 
 **Files:**
+
 - Create: `scripts/live-smoke.ts`
 - Create: `README.md`
 - Modify: `package.json`
 - Test: all existing tests.
 
 **Interfaces:**
+
 - Consumes: the public environment variables and built server.
 - Produces: a complete operator guide and read-only live validation command.
 

@@ -11,8 +11,8 @@ const handlers: ReturnType<typeof createMcpHandler>[] = [];
 const logger: Logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
 afterEach(async () => {
-  await Promise.all(clients.splice(0).map(client => client.close()));
-  await Promise.all(handlers.splice(0).map(handler => handler.close()));
+  await Promise.all(clients.splice(0).map((client) => client.close()));
+  await Promise.all(handlers.splice(0).map((handler) => handler.close()));
 });
 
 describe('MCP protocol compatibility', () => {
@@ -31,7 +31,12 @@ describe('MCP protocol compatibility', () => {
         mutate: vi.fn(),
         executeProcedure: vi.fn(),
         executeTransaction: vi.fn(),
-        health: vi.fn().mockResolvedValue({ ok: true, database: 'PosDb', poolConnected: true, executionTimeMs: 1 }),
+        health: vi.fn().mockResolvedValue({
+          ok: true,
+          database: 'PosDb',
+          poolConnected: true,
+          executionTimeMs: 1
+        }),
         version: vi.fn(),
         explain: vi.fn()
       },
@@ -55,6 +60,8 @@ describe('MCP protocol compatibility', () => {
     await client.connect(transport);
     clients.push(client);
     expect(client.getProtocolEra()).toBe('modern');
-    expect((await client.listTools()).tools.some(tool => tool.name === 'health_check')).toBe(true);
+    expect((await client.listTools()).tools.some((tool) => tool.name === 'health_check')).toBe(
+      true
+    );
   });
 });

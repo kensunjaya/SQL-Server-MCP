@@ -210,14 +210,16 @@ export function validateSql(
   if (tokens[end - 1]?.kind === 'semicolon') end -= 1;
   const significant = tokens.slice(start, end);
   if (significant.length === 0) validationError('SQL statement cannot be empty');
-  if (significant.some(token => token.kind === 'semicolon')) {
+  if (significant.some((token) => token.kind === 'semicolon')) {
     validationError('Only one SQL statement is allowed');
   }
   if (tokens.slice(end).length > 1) validationError('Only one trailing semicolon is allowed');
 
   const actualKind = operationFromTokens(significant);
   if (actualKind !== expectedKind) {
-    validationError(`Expected a ${expectedKind.toUpperCase()} statement but received ${actualKind.toUpperCase()}`);
+    validationError(
+      `Expected a ${expectedKind.toUpperCase()} statement but received ${actualKind.toUpperCase()}`
+    );
   }
 
   for (const token of significant) {
@@ -226,7 +228,9 @@ export function validateSql(
       validationError(`SQL keyword ${token.value} is not allowed`);
     }
     if (crossOperation[expectedKind].has(token.value)) {
-      validationError(`SQL keyword ${token.value} is not allowed in a ${expectedKind.toUpperCase()} statement`);
+      validationError(
+        `SQL keyword ${token.value} is not allowed in a ${expectedKind.toUpperCase()} statement`
+      );
     }
     if (expectedKind === 'select' && token.value === 'INTO') {
       validationError('SELECT INTO is not allowed');
@@ -234,7 +238,9 @@ export function validateSql(
   }
 
   const parameterNames = [
-    ...new Set(significant.filter(token => token.kind === 'parameter').map(token => token.value))
+    ...new Set(
+      significant.filter((token) => token.kind === 'parameter').map((token) => token.value)
+    )
   ];
   const normalizedSql = trimmed.replace(/;\s*$/, '').trim();
   return { sql: normalizedSql, kind: actualKind, parameterNames };

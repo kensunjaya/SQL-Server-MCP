@@ -22,7 +22,7 @@ function isLoopback(host: string): boolean {
 
 function closeHttpServer(server: http.Server): Promise<void> {
   return new Promise((resolve, reject) => {
-    server.close(error => (error === undefined ? resolve() : reject(error)));
+    server.close((error) => (error === undefined ? resolve() : reject(error)));
   });
 }
 
@@ -45,16 +45,14 @@ export async function startHttp(
   ];
   const handler = createMcpHandler(factory, {
     legacy: 'stateless',
-    onerror: error => logger.error('HTTP MCP handler error', { message: error.message })
+    onerror: (error) => logger.error('HTTP MCP handler error', { message: error.message })
   });
   const securedHandler = {
     fetch: (request: Request) =>
-      Promise.resolve(
-        hostHeaderValidationResponse(request, allowedHosts) ?? handler.fetch(request)
-      )
+      Promise.resolve(hostHeaderValidationResponse(request, allowedHosts) ?? handler.fetch(request))
   };
   const nodeHandler = toNodeHandler(securedHandler, {
-    onerror: error => logger.error('HTTP MCP adapter error', { message: error.message })
+    onerror: (error) => logger.error('HTTP MCP adapter error', { message: error.message })
   });
 
   const server = http.createServer((request, response) => {

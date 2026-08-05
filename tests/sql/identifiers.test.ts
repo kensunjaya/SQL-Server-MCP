@@ -19,9 +19,9 @@ describe('SQL identifiers', () => {
     expect(quoteIdentifier('a]b')).toBe('[a]]b]');
   });
 
-  it.each(['', 'dbo..Run', 'server.db.dbo.Run', 'dbo.Run;DROP TABLE X', '[missing']) (
+  it.each(['', 'dbo..Run', 'server.db.dbo.Run', 'dbo.Run;DROP TABLE X', '[missing'])(
     'rejects invalid identifier %s',
-    value => {
+    (value) => {
       expect(() => parseMultipartIdentifier(value, 2)).toThrow('Invalid SQL identifier');
     }
   );

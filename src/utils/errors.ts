@@ -58,9 +58,10 @@ export function normalizeError(error: unknown): SafeError {
     );
     const connectionCodes = new Set(['ELOGIN', 'ESOCKET', 'ECONNCLOSED', 'ENOTOPEN']);
     return {
-      code: driverCode !== undefined && connectionCodes.has(driverCode)
-        ? 'DATABASE_CONNECTION_ERROR'
-        : 'DATABASE_QUERY_ERROR',
+      code:
+        driverCode !== undefined && connectionCodes.has(driverCode)
+          ? 'DATABASE_CONNECTION_ERROR'
+          : 'DATABASE_QUERY_ERROR',
       message:
         typeof error.message === 'string' && error.message.trim() !== ''
           ? error.message

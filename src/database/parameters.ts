@@ -12,6 +12,15 @@ const parameterName = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const lengthTypes = new Set(['CHAR', 'NCHAR', 'VARCHAR', 'NVARCHAR', 'VARBINARY']);
 const precisionTypes = new Set(['DECIMAL', 'NUMERIC']);
 const scaleTypes = new Set(['TIME', 'DATETIME2', 'DATETIMEOFFSET']);
+const dateTypes = new Set([
+  'DATE',
+  'TIME',
+  'SMALLDATETIME',
+  'DATETIME',
+  'DATETIME2',
+  'DATETIMEOFFSET'
+]);
+const binaryTypes = new Set(['BINARY', 'VARBINARY']);
 
 const factories = {
   BIT: sql.Bit,
@@ -60,6 +69,30 @@ function validateParameters(parameters: readonly SqlParameter[]): void {
     if (names.has(key)) invalid(`Duplicate SQL parameter name: ${parameter.name}`);
     names.add(key);
   }
+}
+
+function parameterValue(parameter: SqlParameter): unknown {
+  if (parameter.type === undefined || parameter.value === null || parameter.value === undefined) {
+    return parameter.value;
+  }
+  const name = parameter.type.toUpperCase();
+  if (
+    dateTypes.has(name) &&
+    (typeof parameter.value === 'string' || typeof parameter.value === 'number')
+  ) {
+    const value = new Date(parameter.value);
+    if (Number.isNaN(value.getTime()))
+      invalid(`Parameter ${parameter.name} is not a valid date/time value`);
+    return value;
+  }
+  if (binaryTypes.has(name)) {
+    if (typeof parameter.value === 'string') return Buffer.from(parameter.value, 'base64');
+    if (typeof parameter.value === 'object' && parameter.value !== null) {
+      const encoded = (parameter.value as Record<string, unknown>).$binary;
+      if (typeof encoded === 'string') return Buffer.from(encoded, 'base64');
+    }
+  }
+  return parameter.value;
 }
 
 export function resolveSqlType(parameter: SqlParameter): sql.ISqlType | (() => sql.ISqlType) {
@@ -128,7 +161,7 @@ export function bindInputParameters(
       }
       request.input(parameter.name, parameter.value);
     } else {
-      request.input(parameter.name, resolveSqlType(parameter), parameter.value);
+      request.input(parameter.name, resolveSqlType(parameter), parameterValue(parameter));
     }
   }
 }
@@ -147,7 +180,7 @@ export function bindProcedureParameters(
         }
         request.input(parameter.name, parameter.value);
       } else {
-        request.input(parameter.name, resolveSqlType(parameter), parameter.value);
+        request.input(parameter.name, resolveSqlType(parameter), parameterValue(parameter));
       }
       continue;
     }
@@ -156,7 +189,7 @@ export function bindProcedureParameters(
     request.output(
       parameter.name,
       type,
-      direction === 'inputOutput' ? parameter.value : undefined
+      direction === 'inputOutput' ? parameterValue(parameter) : undefined
     );
   }
 }

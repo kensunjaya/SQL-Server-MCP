@@ -9,7 +9,7 @@ export interface ServerHandle {
 export function startStdio(factory: McpServerFactory, logger: Logger): ServerHandle {
   const handle = serveStdio(factory, {
     legacy: 'serve',
-    onerror: error => logger.error('Stdio MCP transport error', { message: error.message })
+    onerror: (error) => logger.error('Stdio MCP transport error', { message: error.message })
   });
   logger.info('MCP server listening on stdio');
   return handle;

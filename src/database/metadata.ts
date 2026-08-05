@@ -32,7 +32,7 @@ interface MetadataDriver {
 }
 
 const defaultDriver: MetadataDriver = {
-  request: parent => new sql.Request(parent as never) as unknown as RequestLike
+  request: (parent) => new sql.Request(parent as never) as unknown as RequestLike
 };
 
 function duration(start: number): number {
@@ -96,14 +96,19 @@ export class MetadataService {
     return { offset, limit: Math.min(limit, this.config.limits.maxRows) };
   }
 
-  private async execute(command: string, parameters: { name: string; value: unknown; type?: string }[] = []) {
+  private async execute(
+    command: string,
+    parameters: { name: string; value: unknown; type?: string }[] = []
+  ) {
     const pool = await this.pools.getPool();
     const request = this.driver.request(pool);
     bindInputParameters(request, parameters);
     return request.query(command);
   }
 
-  async listTables(input: { offset?: number | undefined; limit?: number | undefined } = {}): Promise<MetadataPage<Record<string, unknown>>> {
+  async listTables(
+    input: { offset?: number | undefined; limit?: number | undefined } = {}
+  ): Promise<MetadataPage<Record<string, unknown>>> {
     const { offset, limit } = this.page(input.offset, input.limit);
     const start = performance.now();
     const result = await this.execute(
@@ -137,7 +142,9 @@ export class MetadataService {
     };
   }
 
-  async listViews(input: { offset?: number | undefined; limit?: number | undefined } = {}): Promise<MetadataPage<Record<string, unknown>>> {
+  async listViews(
+    input: { offset?: number | undefined; limit?: number | undefined } = {}
+  ): Promise<MetadataPage<Record<string, unknown>>> {
     const { offset, limit } = this.page(input.offset, input.limit);
     const start = performance.now();
     const result = await this.execute(
@@ -209,7 +216,10 @@ export class MetadataService {
     };
   }
 
-  async describeTable(input: { schema?: string | undefined; table: string }): Promise<Record<string, unknown>> {
+  async describeTable(input: {
+    schema?: string | undefined;
+    table: string;
+  }): Promise<Record<string, unknown>> {
     const schema = input.schema?.trim() || 'dbo';
     const table = input.table.trim();
     if (table === '') throw new AppError('VALIDATION_ERROR', 'Table name cannot be empty');
@@ -299,8 +309,8 @@ export class MetadataService {
       table,
       columns,
       primaryKey: columns
-        .filter(column => Number(column.primaryKeyOrdinal ?? 0) > 0)
-        .map(column => ({
+        .filter((column) => Number(column.primaryKeyOrdinal ?? 0) > 0)
+        .map((column) => ({
           column: column.columnName,
           ordinal: column.primaryKeyOrdinal
         })),
@@ -310,7 +320,9 @@ export class MetadataService {
     };
   }
 
-  async getDatabaseSchema(input: { offset?: number | undefined; limit?: number | undefined } = {}): Promise<Record<string, unknown>> {
+  async getDatabaseSchema(
+    input: { offset?: number | undefined; limit?: number | undefined } = {}
+  ): Promise<Record<string, unknown>> {
     const { offset, limit } = this.page(input.offset, input.limit);
     const start = performance.now();
     const result = await this.execute(
@@ -331,13 +343,46 @@ export class MetadataService {
         p.objectType,
         (
           SELECT c.column_id AS ordinal, c.name AS columnName, ty.name AS typeName,
-            c.max_length AS maxLength, c.precision, c.scale, c.is_nullable AS nullable
+            c.max_length AS maxLength, c.precision, c.scale, c.is_nullable AS nullable,
+            pk.key_ordinal AS primaryKeyOrdinal
           FROM sys.columns AS c
           INNER JOIN sys.types AS ty ON ty.user_type_id = c.user_type_id
+          LEFT JOIN (
+            SELECT ic.object_id, ic.column_id, ic.key_ordinal
+            FROM sys.indexes AS i
+            INNER JOIN sys.index_columns AS ic
+              ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+            WHERE i.is_primary_key = 1
+          ) AS pk ON pk.object_id = c.object_id AND pk.column_id = c.column_id
           WHERE c.object_id = p.objectId
           ORDER BY c.column_id
           FOR JSON PATH
-        ) AS columnsJson
+        ) AS columnsJson,
+        (
+          SELECT fk.name,
+            ps.name AS schemaName,
+            pt.name AS tableName,
+            rs.name AS referencedSchemaName,
+            rt.name AS referencedTableName,
+            pc.name AS columnName,
+            rc.name AS referencedColumnName,
+            fkc.constraint_column_id AS ordinal,
+            fk.update_referential_action_desc AS updateAction,
+            fk.delete_referential_action_desc AS deleteAction
+          FROM sys.foreign_keys AS fk
+          INNER JOIN sys.foreign_key_columns AS fkc ON fkc.constraint_object_id = fk.object_id
+          INNER JOIN sys.tables AS pt ON pt.object_id = fk.parent_object_id
+          INNER JOIN sys.schemas AS ps ON ps.schema_id = pt.schema_id
+          INNER JOIN sys.columns AS pc
+            ON pc.object_id = pt.object_id AND pc.column_id = fkc.parent_column_id
+          INNER JOIN sys.tables AS rt ON rt.object_id = fk.referenced_object_id
+          INNER JOIN sys.schemas AS rs ON rs.schema_id = rt.schema_id
+          INNER JOIN sys.columns AS rc
+            ON rc.object_id = rt.object_id AND rc.column_id = fkc.referenced_column_id
+          WHERE fk.parent_object_id = p.objectId
+          ORDER BY fk.name, fkc.constraint_column_id
+          FOR JSON PATH
+        ) AS foreignKeysJson
       FROM Paged AS p
       WHERE p.rowNumber > @offset AND p.rowNumber <= @upperBound
       ORDER BY p.rowNumber`,
@@ -347,17 +392,36 @@ export class MetadataService {
       ]
     );
     const all = records(result);
-    const items = all.slice(0, limit).map(item => {
+    const items = all.slice(0, limit).map((item) => {
       const raw = typeof item.columnsJson === 'string' ? item.columnsJson : '[]';
       let columns: unknown;
+      let foreignKeyRows: unknown;
       try {
         columns = JSON.parse(raw) as unknown;
       } catch {
         columns = [];
       }
+      try {
+        foreignKeyRows = JSON.parse(
+          typeof item.foreignKeysJson === 'string' ? item.foreignKeysJson : '[]'
+        ) as unknown;
+      } catch {
+        foreignKeyRows = [];
+      }
       const object = { ...item };
       delete object.columnsJson;
-      return { ...object, columns: toJsonValue(columns) };
+      delete object.foreignKeysJson;
+      return {
+        ...object,
+        columns: toJsonValue(columns),
+        foreignKeys: Array.isArray(foreignKeyRows)
+          ? groupForeignKeys(
+              foreignKeyRows.filter(
+                (row): row is Record<string, unknown> => typeof row === 'object' && row !== null
+              )
+            )
+          : []
+      };
     });
     return {
       offset,

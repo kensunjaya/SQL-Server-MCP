@@ -44,8 +44,12 @@ describe('loadConfig', () => {
   });
 
   it('does not reveal the password in validation errors', () => {
-    expect(() => loadConfig({ ...required, DB_PORT: 'invalid' })).toThrowError(
-      expect.not.stringContaining('do-not-print-me')
-    );
+    try {
+      loadConfig({ ...required, DB_PORT: 'invalid' });
+      expect.fail('Expected invalid configuration to throw');
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'CONFIGURATION_ERROR' });
+      expect(String(error)).not.toContain('do-not-print-me');
+    }
   });
 });

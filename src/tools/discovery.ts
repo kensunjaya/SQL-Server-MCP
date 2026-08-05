@@ -12,7 +12,12 @@ export interface MetadataToolsService {
   getDatabaseSchema: MetadataService['getDatabaseSchema'];
 }
 
-const readOnly = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+const readOnly = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false
+};
 
 export function registerDiscoveryTools(
   server: McpServer,
@@ -27,7 +32,7 @@ export function registerDiscoveryTools(
       inputSchema: paginationSchema,
       annotations: readOnly
     },
-    withToolErrors('list_tables', logger, async args => {
+    withToolErrors('list_tables', logger, async (args) => {
       const result = await metadata.listTables(args);
       return successResult(`Found ${result.returned} table(s).`, result);
     })
@@ -41,7 +46,7 @@ export function registerDiscoveryTools(
       inputSchema: paginationSchema,
       annotations: readOnly
     },
-    withToolErrors('list_views', logger, async args => {
+    withToolErrors('list_views', logger, async (args) => {
       const result = await metadata.listViews(args);
       return successResult(`Found ${result.returned} view(s).`, result);
     })
@@ -51,11 +56,12 @@ export function registerDiscoveryTools(
     'search_tables',
     {
       title: 'Search tables and views',
-      description: 'Search user table and view names by a literal case-insensitive database pattern.',
+      description:
+        'Search user table and view names by a literal case-insensitive database pattern.',
       inputSchema: searchSchema,
       annotations: readOnly
     },
-    withToolErrors('search_tables', logger, async args => {
+    withToolErrors('search_tables', logger, async (args) => {
       const result = await metadata.searchObjects(args);
       return successResult(`Found ${result.returned} matching object(s).`, result);
     })
@@ -70,7 +76,7 @@ export function registerDiscoveryTools(
       inputSchema: describeTableSchema,
       annotations: readOnly
     },
-    withToolErrors('describe_table', logger, async args => {
+    withToolErrors('describe_table', logger, async (args) => {
       const result = await metadata.describeTable(args);
       return successResult(`Described ${args.schema}.${args.table}.`, result);
     })
@@ -84,7 +90,7 @@ export function registerDiscoveryTools(
       inputSchema: paginationSchema,
       annotations: readOnly
     },
-    withToolErrors('get_database_schema', logger, async args => {
+    withToolErrors('get_database_schema', logger, async (args) => {
       const result = await metadata.getDatabaseSchema(args);
       return successResult(`Returned ${String(result.returnedObjects)} schema object(s).`, result);
     })

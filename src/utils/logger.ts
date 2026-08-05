@@ -13,7 +13,9 @@ function safeMetadata(metadata: Record<string, unknown> | undefined): Record<str
   if (metadata === undefined) return {};
 
   return Object.fromEntries(
-    Object.entries(metadata).filter(([key]) => !/password|secret|credential|connectionString/i.test(key))
+    Object.entries(metadata).filter(
+      ([key]) => !/password|secret|credential|connectionString/i.test(key)
+    )
   );
 }
 

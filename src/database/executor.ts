@@ -5,7 +5,11 @@ import { validateSql, type StatementKind } from '../sql/guardrails.js';
 import { parseMultipartIdentifier, quoteIdentifierParts } from '../sql/identifiers.js';
 import { AppError, normalizeError } from '../utils/errors.js';
 import { boundRecordsets, sumRowsAffected, toJsonValue } from '../utils/json.js';
-import { bindInputParameters, bindProcedureParameters, type BindableRequest } from './parameters.js';
+import {
+  bindInputParameters,
+  bindProcedureParameters,
+  type BindableRequest
+} from './parameters.js';
 import type { PoolManager } from './pool.js';
 import type {
   MutationResult,
@@ -47,8 +51,8 @@ export interface PoolProvider {
 }
 
 const defaultDriver: ExecutorDriver = {
-  request: parent => new sql.Request(parent as never) as unknown as RequestLike,
-  transaction: pool => new sql.Transaction(pool)
+  request: (parent) => new sql.Request(parent as never) as unknown as RequestLike,
+  transaction: (pool) => new sql.Transaction(pool)
 };
 
 function elapsed(start: number): number {
@@ -253,7 +257,8 @@ export class SqlExecutor {
       const row = asRecordsets(result)[0]?.[0] as { databaseName?: unknown } | undefined;
       return {
         ok: true,
-        database: typeof row?.databaseName === 'string' ? row.databaseName : this.config.database.database,
+        database:
+          typeof row?.databaseName === 'string' ? row.databaseName : this.config.database.database,
         poolConnected: this.pools.connected,
         executionTimeMs: elapsed(start)
       };
@@ -304,10 +309,13 @@ export class SqlExecutor {
       const row = asRecordsets(result)[0]?.[0];
       const plan =
         typeof row === 'object' && row !== null
-          ? Object.values(row).find(value => typeof value === 'string')
+          ? Object.values(row).find((value) => typeof value === 'string')
           : undefined;
       if (typeof plan !== 'string') {
-        throw new AppError('DATABASE_QUERY_ERROR', 'SQL Server did not return an estimated XML plan');
+        throw new AppError(
+          'DATABASE_QUERY_ERROR',
+          'SQL Server did not return an estimated XML plan'
+        );
       }
       return { planXml: plan, executionTimeMs: elapsed(start) };
     } catch (error) {

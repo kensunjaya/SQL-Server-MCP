@@ -7,7 +7,7 @@ describe('validateSql', () => {
     ['SELECT 1', 'select'],
     [';WITH sales AS (SELECT 1 AS id) SELECT id FROM sales;', 'select'],
     ["SELECT '; DROP TABLE Sales' AS sample", 'select'],
-    ['SELECT N\'it\'\'s safe; DELETE X\' AS sample', 'select'],
+    ["SELECT N'it''s safe; DELETE X' AS sample", 'select'],
     ['SELECT [DROP], "DELETE" FROM dbo.Safe', 'select'],
     ['UPDATE dbo.Items SET Price = @price WHERE Id = @id;', 'update'],
     ['INSERT dbo.Items(Name) VALUES (@name)', 'insert'],
@@ -31,13 +31,13 @@ describe('validateSql', () => {
     'SELECT 1 /* unterminated',
     'SELECT (1',
     'SELECT 1;;'
-  ])('rejects unsafe select input: %s', sql => {
+  ])('rejects unsafe select input: %s', (sql) => {
     expect(() => validateSql(sql, 'select', 10_000)).toThrow(AppError);
   });
 
-  it.each(['CREATE TABLE X(Id int)', 'DBCC CHECKDB', 'USE master', 'MERGE dbo.T USING dbo.S']) (
+  it.each(['CREATE TABLE X(Id int)', 'DBCC CHECKDB', 'USE master', 'MERGE dbo.T USING dbo.S'])(
     'rejects unsupported operation %s',
-    sql => {
+    (sql) => {
       expect(() => validateSql(sql, 'select', 10_000)).toThrow(AppError);
     }
   );

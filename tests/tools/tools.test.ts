@@ -26,7 +26,9 @@ function dependencies(allowDelete: boolean): ToolDependencies {
       listViews: vi.fn().mockResolvedValue({ items: [], returned: 0, hasMore: false }),
       searchObjects: vi.fn().mockResolvedValue({ items: [], returned: 0, hasMore: false }),
       describeTable: vi.fn().mockResolvedValue({ schema: 'dbo', table: 'Items' }),
-      getDatabaseSchema: vi.fn().mockResolvedValue({ objects: [], returnedObjects: 0, hasMore: false })
+      getDatabaseSchema: vi
+        .fn()
+        .mockResolvedValue({ objects: [], returnedObjects: 0, hasMore: false })
     },
     executor: {
       select: vi.fn().mockResolvedValue({
@@ -55,7 +57,9 @@ function dependencies(allowDelete: boolean): ToolDependencies {
         returnValue: 0,
         executionTimeMs: 1
       }),
-      executeTransaction: vi.fn().mockResolvedValue({ committed: true, steps: [], executionTimeMs: 1 }),
+      executeTransaction: vi
+        .fn()
+        .mockResolvedValue({ committed: true, steps: [], executionTimeMs: 1 }),
       health: vi.fn().mockResolvedValue({
         ok: true,
         database: 'PosDb',
@@ -79,13 +83,13 @@ async function connectedClient(deps: ToolDependencies): Promise<Client> {
 }
 
 afterEach(async () => {
-  await Promise.all(clients.splice(0).map(client => client.close()));
+  await Promise.all(clients.splice(0).map((client) => client.close()));
 });
 
 describe('MCP SQL Server tools', () => {
   it('registers the complete enabled tool set', async () => {
     const client = await connectedClient(dependencies(true));
-    expect((await client.listTools()).tools.map(tool => tool.name).sort()).toEqual(
+    expect((await client.listTools()).tools.map((tool) => tool.name).sort()).toEqual(
       [
         'describe_table',
         'execute_delete',
@@ -107,7 +111,9 @@ describe('MCP SQL Server tools', () => {
 
   it('does not advertise DELETE while disabled', async () => {
     const client = await connectedClient(dependencies(false));
-    expect((await client.listTools()).tools.map(tool => tool.name)).not.toContain('execute_delete');
+    expect((await client.listTools()).tools.map((tool) => tool.name)).not.toContain(
+      'execute_delete'
+    );
   });
 
   it('returns text and structured SELECT content', async () => {

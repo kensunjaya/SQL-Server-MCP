@@ -2,12 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import type { AppConfig } from '../config/config.js';
 import type { SqlExecutor } from '../database/executor.js';
 import type { Logger } from '../utils/logger.js';
-import {
-  mutationSchema,
-  procedureSchema,
-  selectSchema,
-  transactionSchema
-} from './schemas.js';
+import { mutationSchema, procedureSchema, selectSchema, transactionSchema } from './schemas.js';
 import { successResult, withToolErrors } from './responses.js';
 
 export interface ExecutionToolsService {
@@ -17,8 +12,18 @@ export interface ExecutionToolsService {
   executeTransaction: SqlExecutor['executeTransaction'];
 }
 
-const readOnly = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
-const mutation = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+const readOnly = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false
+};
+const mutation = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false
+};
 
 export function registerExecutionTools(
   server: McpServer,
@@ -35,7 +40,7 @@ export function registerExecutionTools(
       inputSchema: selectSchema,
       annotations: readOnly
     },
-    withToolErrors('execute_select', logger, async args => {
+    withToolErrors('execute_select', logger, async (args) => {
       const result = await executor.select(args);
       return successResult(
         `Returned ${result.returnedRows} row(s) in ${result.executionTimeMs} ms${result.truncated ? ' (truncated)' : ''}.`,
@@ -53,7 +58,7 @@ export function registerExecutionTools(
         inputSchema: mutationSchema,
         annotations: mutation
       },
-      withToolErrors(`execute_${operation}`, logger, async args => {
+      withToolErrors(`execute_${operation}`, logger, async (args) => {
         const result = await executor.mutate(operation, args);
         return successResult(
           `${operation.toUpperCase()} affected ${result.affectedRows} row(s) in ${result.executionTimeMs} ms.`,
@@ -68,7 +73,8 @@ export function registerExecutionTools(
       'execute_delete',
       {
         title: 'Execute a DELETE statement',
-        description: 'Execute one parameterized DELETE statement. This tool is configuration-gated.',
+        description:
+          'Execute one parameterized DELETE statement. This tool is configuration-gated.',
         inputSchema: mutationSchema,
         annotations: {
           readOnlyHint: false,
@@ -77,7 +83,7 @@ export function registerExecutionTools(
           openWorldHint: false
         }
       },
-      withToolErrors('execute_delete', logger, async args => {
+      withToolErrors('execute_delete', logger, async (args) => {
         const result = await executor.mutate('delete', args);
         return successResult(
           `DELETE affected ${result.affectedRows} row(s) in ${result.executionTimeMs} ms.`,
@@ -101,7 +107,7 @@ export function registerExecutionTools(
         openWorldHint: false
       }
     },
-    withToolErrors('execute_stored_procedure', logger, async args => {
+    withToolErrors('execute_stored_procedure', logger, async (args) => {
       const result = await executor.executeProcedure(args);
       return successResult(
         `Procedure affected ${result.affectedRows} row(s) in ${result.executionTimeMs} ms.`,
@@ -124,7 +130,7 @@ export function registerExecutionTools(
         openWorldHint: false
       }
     },
-    withToolErrors('execute_transaction', logger, async args => {
+    withToolErrors('execute_transaction', logger, async (args) => {
       const result = await executor.executeTransaction(args);
       return successResult(
         `Committed ${result.steps.length} transaction step(s) in ${result.executionTimeMs} ms.`,

@@ -14,11 +14,6 @@ export interface ToolDependencies {
 
 export function registerTools(server: McpServer, dependencies: ToolDependencies): void {
   registerDiscoveryTools(server, dependencies.metadata, dependencies.logger);
-  registerExecutionTools(
-    server,
-    dependencies.executor,
-    dependencies.config,
-    dependencies.logger
-  );
+  registerExecutionTools(server, dependencies.executor, dependencies.config, dependencies.logger);
   registerDiagnosticTools(server, dependencies.executor, dependencies.logger);
 }
