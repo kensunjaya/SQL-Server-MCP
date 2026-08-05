@@ -1,0 +1,53 @@
+{
+  "name": "mcp-sql-server-pos",
+  "version": "1.0.0",
+  "description": "Model Context Protocol server for exploring and interacting with Microsoft SQL Server",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "bin": {
+    "mcp-sql-server": "dist/src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/src/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "smoke:live": "tsx scripts/live-smoke.ts",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "sql-server",
+    "mssql",
+    "pos"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "dotenv": "^17.4.2",
+    "mssql": "^12.7.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@types/mssql": "^12.3.0",
+    "@types/node": "^26.0.0",
+    "eslint": "^10.0.2",
+    "prettier": "^3.8.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.56.1",
+    "vitest": "^4.0.18"
+  }
+}
