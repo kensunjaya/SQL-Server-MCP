@@ -29,6 +29,7 @@ export interface AppConfig {
     httpPort: number;
     httpPath: string;
     httpAllowedHosts: readonly string[];
+    httpBearerToken?: string;
   };
   logging: { level: 'debug' | 'info' | 'warn' | 'error' };
 }
@@ -52,6 +53,15 @@ const optionalInteger = z
   .optional()
   .transform((value) => (value === undefined || value === '' ? undefined : Number(value)))
   .pipe(z.number().int().min(1).max(65_535).optional());
+
+const optionalNonEmptyString = z
+  .string()
+  .optional()
+  .transform((value) => {
+    const normalized = value?.trim();
+    return normalized === '' ? undefined : normalized;
+  })
+  .pipe(z.string().min(1).optional());
 
 const envSchema = z
   .object({
@@ -80,6 +90,7 @@ const envSchema = z
     MCP_HTTP_PORT: integerValue(3_000, 1, 65_535),
     MCP_HTTP_PATH: z.string().trim().min(1).default('/mcp'),
     MCP_HTTP_ALLOWED_HOSTS: z.string().default(''),
+    MCP_HTTP_BEARER_TOKEN: optionalNonEmptyString,
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info')
   })
   .superRefine((value, context) => {
@@ -95,6 +106,13 @@ const envSchema = z
         code: 'custom',
         path: ['DB_POOL_MIN'],
         message: 'DB_POOL_MIN cannot exceed DB_POOL_MAX'
+      });
+    }
+    if (value.MCP_TRANSPORT === 'http' && value.MCP_HTTP_BEARER_TOKEN === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['MCP_HTTP_BEARER_TOKEN'],
+        message: 'is required when MCP_TRANSPORT=http'
       });
     }
   });
@@ -156,7 +174,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       httpHost: value.MCP_HTTP_HOST,
       httpPort: value.MCP_HTTP_PORT,
       httpPath: normalizedPath,
-      httpAllowedHosts: Object.freeze(allowedHosts)
+      httpAllowedHosts: Object.freeze(allowedHosts),
+      ...(value.MCP_HTTP_BEARER_TOKEN === undefined
+        ? {}
+        : { httpBearerToken: value.MCP_HTTP_BEARER_TOKEN })
     }),
     logging: Object.freeze({ level: value.LOG_LEVEL })
   });

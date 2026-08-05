@@ -31,6 +31,22 @@ describe('loadConfig', () => {
     expect(config.transport.httpPath).toBe('/database/mcp');
   });
 
+  it('requires a bearer token for HTTP transport', () => {
+    expect(() => loadConfig({ ...required, MCP_TRANSPORT: 'http' })).toThrow(
+      'MCP_HTTP_BEARER_TOKEN: is required when MCP_TRANSPORT=http'
+    );
+  });
+
+  it('loads the configured HTTP bearer token', () => {
+    const config = loadConfig({
+      ...required,
+      MCP_TRANSPORT: 'http',
+      MCP_HTTP_BEARER_TOKEN: 'test-secret'
+    });
+
+    expect(config.transport.httpBearerToken).toBe('test-secret');
+  });
+
   it('rejects a port and instance name together', () => {
     expect(() =>
       loadConfig({ ...required, DB_PORT: '1433', DB_INSTANCE_NAME: 'SQLEXPRESS' })
