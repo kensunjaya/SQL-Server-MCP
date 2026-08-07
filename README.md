@@ -1,4 +1,4 @@
-# SQL Server POS MCP Server
+# SQL Server MCP Server
 
 A TypeScript [Model Context Protocol](https://modelcontextprotocol.io/) server for exploring and interacting with a Microsoft SQL Server database. It discovers the schema dynamically, so it works with an existing POS database without hardcoded table or column names.
 
