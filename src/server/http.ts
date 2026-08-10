@@ -59,11 +59,12 @@ export async function startHttp(
   config: AppConfig,
   logger: Logger
 ): Promise<HttpServerHandle> {
-  const { httpHost, httpPort, httpPath, httpAllowedHosts, httpBearerToken } = config.transport;
-  if (httpBearerToken === undefined) {
+  const { httpHost, httpPort, httpPath, httpAllowedHosts } = config.transport;
+  const { bearerToken } = config.auth;
+  if (bearerToken === undefined) {
     throw new AppError(
       'CONFIGURATION_ERROR',
-      'MCP_HTTP_BEARER_TOKEN is required for the HTTP transport'
+      'MCP_AUTH_TOKEN is required for bearer HTTP authentication'
     );
   }
   if (!isLoopback(httpHost) && httpAllowedHosts.length === 0) {
@@ -85,7 +86,7 @@ export async function startHttp(
     fetch: (request: Request) => {
       const rejection =
         hostHeaderValidationResponse(request, allowedHosts) ??
-        bearerAuthenticationResponse(request, httpBearerToken);
+        bearerAuthenticationResponse(request, bearerToken);
       return Promise.resolve(rejection ?? handler.fetch(request));
     }
   };

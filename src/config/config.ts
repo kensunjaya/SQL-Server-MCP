@@ -2,6 +2,17 @@ import dotenv from 'dotenv';
 import { z } from 'zod/v4';
 import { AppError } from '../utils/errors.js';
 
+export type AuthenticationMode = 'none' | 'bearer' | 'cloudflare' | 'hybrid';
+
+export interface AuthenticationConfig {
+  mode: AuthenticationMode;
+  bearerToken?: string;
+  cloudflare?: {
+    teamDomain: string;
+    audience: string;
+  };
+}
+
 export interface AppConfig {
   database: {
     server: string;
@@ -29,8 +40,8 @@ export interface AppConfig {
     httpPort: number;
     httpPath: string;
     httpAllowedHosts: readonly string[];
-    httpBearerToken?: string;
   };
+  auth: AuthenticationConfig;
   logging: { level: 'debug' | 'info' | 'warn' | 'error' };
 }
 
@@ -63,6 +74,25 @@ const optionalNonEmptyString = z
   })
   .pipe(z.string().min(1).optional());
 
+function isCloudflareTeamDomain(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === 'https:' &&
+      url.hostname.endsWith('.cloudflareaccess.com') &&
+      url.hostname !== 'cloudflareaccess.com' &&
+      url.port === '' &&
+      url.username === '' &&
+      url.password === '' &&
+      url.pathname === '/' &&
+      url.search === '' &&
+      url.hash === ''
+    );
+  } catch {
+    return false;
+  }
+}
+
 const envSchema = z
   .object({
     DB_SERVER: z.string().trim().min(1),
@@ -90,7 +120,11 @@ const envSchema = z
     MCP_HTTP_PORT: integerValue(3_000, 1, 65_535),
     MCP_HTTP_PATH: z.string().trim().min(1).default('/mcp'),
     MCP_HTTP_ALLOWED_HOSTS: z.string().default(''),
+    MCP_AUTH_MODE: z.enum(['none', 'bearer', 'cloudflare', 'hybrid']).default('bearer'),
+    MCP_AUTH_TOKEN: optionalNonEmptyString,
     MCP_HTTP_BEARER_TOKEN: optionalNonEmptyString,
+    CF_ACCESS_TEAM_DOMAIN: optionalNonEmptyString,
+    CF_ACCESS_AUD: optionalNonEmptyString,
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info')
   })
   .superRefine((value, context) => {
@@ -108,11 +142,54 @@ const envSchema = z
         message: 'DB_POOL_MIN cannot exceed DB_POOL_MAX'
       });
     }
-    if (value.MCP_TRANSPORT === 'http' && value.MCP_HTTP_BEARER_TOKEN === undefined) {
+    if (
+      value.MCP_AUTH_TOKEN !== undefined &&
+      value.MCP_HTTP_BEARER_TOKEN !== undefined &&
+      value.MCP_AUTH_TOKEN !== value.MCP_HTTP_BEARER_TOKEN
+    ) {
       context.addIssue({
         code: 'custom',
-        path: ['MCP_HTTP_BEARER_TOKEN'],
-        message: 'is required when MCP_TRANSPORT=http'
+        path: ['MCP_AUTH_TOKEN'],
+        message: 'must match MCP_HTTP_BEARER_TOKEN when both are set'
+      });
+    }
+    if (
+      value.CF_ACCESS_TEAM_DOMAIN !== undefined &&
+      !isCloudflareTeamDomain(value.CF_ACCESS_TEAM_DOMAIN)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['CF_ACCESS_TEAM_DOMAIN'],
+        message: 'must be an HTTPS cloudflareaccess.com origin without a path or query'
+      });
+    }
+
+    if (value.MCP_TRANSPORT !== 'http') return;
+
+    const bearerToken = value.MCP_AUTH_TOKEN ?? value.MCP_HTTP_BEARER_TOKEN;
+    const requiresBearer = value.MCP_AUTH_MODE === 'bearer' || value.MCP_AUTH_MODE === 'hybrid';
+    const requiresCloudflare =
+      value.MCP_AUTH_MODE === 'cloudflare' || value.MCP_AUTH_MODE === 'hybrid';
+
+    if (requiresBearer && bearerToken === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['MCP_AUTH_TOKEN'],
+        message: 'is required for bearer or hybrid HTTP authentication'
+      });
+    }
+    if (requiresCloudflare && value.CF_ACCESS_TEAM_DOMAIN === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['CF_ACCESS_TEAM_DOMAIN'],
+        message: 'is required for cloudflare or hybrid HTTP authentication'
+      });
+    }
+    if (requiresCloudflare && value.CF_ACCESS_AUD === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['CF_ACCESS_AUD'],
+        message: 'is required for cloudflare or hybrid HTTP authentication'
       });
     }
   });
@@ -139,6 +216,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const allowedHosts = value.MCP_HTTP_ALLOWED_HOSTS.split(',')
     .map((host) => host.trim())
     .filter(Boolean);
+  const bearerToken = value.MCP_AUTH_TOKEN ?? value.MCP_HTTP_BEARER_TOKEN;
+  const cloudflareTeamDomain =
+    value.CF_ACCESS_TEAM_DOMAIN === undefined
+      ? undefined
+      : new URL(value.CF_ACCESS_TEAM_DOMAIN).origin;
 
   return Object.freeze({
     database: Object.freeze({
@@ -174,10 +256,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       httpHost: value.MCP_HTTP_HOST,
       httpPort: value.MCP_HTTP_PORT,
       httpPath: normalizedPath,
-      httpAllowedHosts: Object.freeze(allowedHosts),
-      ...(value.MCP_HTTP_BEARER_TOKEN === undefined
+      httpAllowedHosts: Object.freeze(allowedHosts)
+    }),
+    auth: Object.freeze({
+      mode: value.MCP_AUTH_MODE,
+      ...(bearerToken === undefined ? {} : { bearerToken }),
+      ...(cloudflareTeamDomain === undefined || value.CF_ACCESS_AUD === undefined
         ? {}
-        : { httpBearerToken: value.MCP_HTTP_BEARER_TOKEN })
+        : {
+            cloudflare: Object.freeze({
+              teamDomain: cloudflareTeamDomain,
+              audience: value.CF_ACCESS_AUD
+            })
+          })
     }),
     logging: Object.freeze({ level: value.LOG_LEVEL })
   });

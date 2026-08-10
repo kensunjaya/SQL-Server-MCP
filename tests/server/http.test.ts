@@ -140,20 +140,21 @@ describe('Streamable HTTP server', () => {
     ).rejects.toMatchObject({ code: 'CONFIGURATION_ERROR' });
   });
 
-  it('defensively rejects an HTTP config without a bearer token', async () => {
+  it('defensively rejects a bearer HTTP config without a bearer token', async () => {
     const setup = dependencies();
-    const transport = { ...setup.config.transport };
-    delete transport.httpBearerToken;
+    const auth = { ...setup.config.auth };
+    delete auth.bearerToken;
     const config = {
       ...setup.config,
-      transport: { ...transport, httpPort: 0 }
+      auth,
+      transport: { ...setup.config.transport, httpPort: 0 }
     };
 
     await expect(
       startHttp(() => createMcpServer(setup.dependencies), config, logger)
     ).rejects.toMatchObject({
       code: 'CONFIGURATION_ERROR',
-      message: expect.stringContaining('MCP_HTTP_BEARER_TOKEN')
+      message: expect.stringContaining('MCP_AUTH_TOKEN')
     });
   });
 });
