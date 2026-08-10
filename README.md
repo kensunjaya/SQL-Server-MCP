@@ -2,7 +2,7 @@
 
 A TypeScript [Model Context Protocol](https://modelcontextprotocol.io/) server for exploring and interacting with a Microsoft SQL Server database. It discovers the schema dynamically, so it works with an existing POS database without hardcoded table or column names.
 
-It supports local stdio clients and stateless Streamable HTTP, using the stable [MCP TypeScript SDK v2](https://ts.sdk.modelcontextprotocol.io/v2/) and a shared `mssql` connection pool.
+It supports local stdio clients and stateless Streamable HTTP, using the stable [MCP TypeScript SDK v2](https://ts.sdk.modelcontextprotocol.io/v2/) and a shared `mssql` connection pool. HTTP authentication can use a static bearer token, a cryptographically verified Cloudflare Access JWT, or both.
 
 ## What it can do
 
@@ -63,35 +63,39 @@ The live smoke check is read-only. It runs health, version, table-list, and data
 
 All configuration comes from environment variables. `.env` is loaded for command-line use and is excluded from Git.
 
-| Variable                      |       Required | Default        | Purpose                                                                                      |
-| ----------------------------- | -------------: | -------------- | -------------------------------------------------------------------------------------------- |
-| `DB_SERVER`                   |            Yes | —              | SQL Server host name or IP address.                                                          |
-| `DB_PORT`                     |             No | Driver default | TCP port. Do not set with `DB_INSTANCE_NAME`.                                                |
-| `DB_INSTANCE_NAME`            |             No | —              | Named SQL Server instance, such as `SQLEXPRESS`. Do not set with `DB_PORT`.                  |
-| `DB_DATABASE`                 |            Yes | —              | Database name.                                                                               |
-| `DB_USER`                     |            Yes | —              | SQL authentication username.                                                                 |
-| `DB_PASSWORD`                 |            Yes | —              | SQL authentication password. Never commit it.                                                |
-| `DB_ENCRYPT`                  |             No | `true`         | Encrypt the SQL connection.                                                                  |
-| `DB_TRUST_SERVER_CERTIFICATE` |             No | `false`        | Trust a self-signed/unverified server certificate. Prefer `false` outside local development. |
-| `DB_POOL_MIN`                 |             No | `0`            | Minimum pooled connections.                                                                  |
-| `DB_POOL_MAX`                 |             No | `10`           | Maximum pooled connections.                                                                  |
-| `DB_POOL_IDLE_TIMEOUT_MS`     |             No | `30000`        | Idle connection timeout.                                                                     |
-| `DB_CONNECTION_TIMEOUT_MS`    |             No | `15000`        | Initial connection timeout.                                                                  |
-| `DB_REQUEST_TIMEOUT_MS`       |             No | `30000`        | Per-request SQL timeout.                                                                     |
-| `DB_MAX_ROWS`                 |             No | `500`          | Maximum rows serialized in one tool result.                                                  |
-| `DB_MAX_SQL_LENGTH`           |             No | `100000`       | Maximum accepted raw SQL characters.                                                         |
-| `DB_MAX_TRANSACTION_STEPS`    |             No | `20`           | Maximum statements in one transaction call.                                                  |
-| `DB_ALLOW_WRITE`              |             No | `true`         | Enable INSERT, UPDATE, and transaction mutations.                                            |
-| `DB_ALLOW_DELETE`             |             No | `false`        | Register and enable DELETE.                                                                  |
-| `DB_ALLOW_PROCEDURES`         |             No | `true`         | Enable stored procedures, which may perform writes internally.                               |
-| `DB_ALLOW_TRANSACTIONS`       |             No | `true`         | Enable multi-statement transactions.                                                         |
-| `MCP_TRANSPORT`               |             No | `stdio`        | `stdio` or `http`.                                                                           |
-| `MCP_HTTP_HOST`               |             No | `127.0.0.1`    | HTTP bind address.                                                                           |
-| `MCP_HTTP_PORT`               |             No | `3000`         | HTTP listen port.                                                                            |
-| `MCP_HTTP_PATH`               |             No | `/mcp`         | Streamable HTTP endpoint path.                                                               |
-| `MCP_HTTP_ALLOWED_HOSTS`      | No on loopback | —              | Comma-separated Host-header allowlist. Required for non-loopback binding.                    |
-| `MCP_HTTP_BEARER_TOKEN`       |   In HTTP mode | —              | Shared bearer token for HTTP clients. Never commit it. Ignored by stdio.                     |
-| `LOG_LEVEL`                   |             No | `info`         | `debug`, `info`, `warn`, or `error`.                                                         |
+| Variable                      |               Required | Default        | Purpose                                                                                      |
+| ----------------------------- | ---------------------: | -------------- | -------------------------------------------------------------------------------------------- |
+| `DB_SERVER`                   |                    Yes | —              | SQL Server host name or IP address.                                                          |
+| `DB_PORT`                     |                     No | Driver default | TCP port. Do not set with `DB_INSTANCE_NAME`.                                                |
+| `DB_INSTANCE_NAME`            |                     No | —              | Named SQL Server instance, such as `SQLEXPRESS`. Do not set with `DB_PORT`.                  |
+| `DB_DATABASE`                 |                    Yes | —              | Database name.                                                                               |
+| `DB_USER`                     |                    Yes | —              | SQL authentication username.                                                                 |
+| `DB_PASSWORD`                 |                    Yes | —              | SQL authentication password. Never commit it.                                                |
+| `DB_ENCRYPT`                  |                     No | `true`         | Encrypt the SQL connection.                                                                  |
+| `DB_TRUST_SERVER_CERTIFICATE` |                     No | `false`        | Trust a self-signed/unverified server certificate. Prefer `false` outside local development. |
+| `DB_POOL_MIN`                 |                     No | `0`            | Minimum pooled connections.                                                                  |
+| `DB_POOL_MAX`                 |                     No | `10`           | Maximum pooled connections.                                                                  |
+| `DB_POOL_IDLE_TIMEOUT_MS`     |                     No | `30000`        | Idle connection timeout.                                                                     |
+| `DB_CONNECTION_TIMEOUT_MS`    |                     No | `15000`        | Initial connection timeout.                                                                  |
+| `DB_REQUEST_TIMEOUT_MS`       |                     No | `30000`        | Per-request SQL timeout.                                                                     |
+| `DB_MAX_ROWS`                 |                     No | `500`          | Maximum rows serialized in one tool result.                                                  |
+| `DB_MAX_SQL_LENGTH`           |                     No | `100000`       | Maximum accepted raw SQL characters.                                                         |
+| `DB_MAX_TRANSACTION_STEPS`    |                     No | `20`           | Maximum statements in one transaction call.                                                  |
+| `DB_ALLOW_WRITE`              |                     No | `true`         | Enable INSERT, UPDATE, and transaction mutations.                                            |
+| `DB_ALLOW_DELETE`             |                     No | `false`        | Register and enable DELETE.                                                                  |
+| `DB_ALLOW_PROCEDURES`         |                     No | `true`         | Enable stored procedures, which may perform writes internally.                               |
+| `DB_ALLOW_TRANSACTIONS`       |                     No | `true`         | Enable multi-statement transactions.                                                         |
+| `MCP_TRANSPORT`               |                     No | `stdio`        | `stdio` or `http`.                                                                           |
+| `MCP_HTTP_HOST`               |                     No | `127.0.0.1`    | HTTP bind address.                                                                           |
+| `MCP_HTTP_PORT`               |                     No | `3000`         | HTTP listen port.                                                                            |
+| `MCP_HTTP_PATH`               |                     No | `/mcp`         | Streamable HTTP endpoint path.                                                               |
+| `MCP_HTTP_ALLOWED_HOSTS`      |         No on loopback | —              | Comma-separated Host-header allowlist. Required for non-loopback binding.                    |
+| `MCP_AUTH_MODE`               |                     No | `bearer`       | HTTP authentication mode: `none`, `bearer`, `cloudflare`, or `hybrid`.                       |
+| `MCP_AUTH_TOKEN`              |     Bearer/hybrid HTTP | —              | Static bearer token for developer clients. Never commit it.                                  |
+| `MCP_HTTP_BEARER_TOKEN`       |                     No | —              | Legacy alias for `MCP_AUTH_TOKEN`. If both are set, their values must match.                 |
+| `CF_ACCESS_TEAM_DOMAIN`       | Cloudflare/hybrid HTTP | —              | Team domain, such as `https://example.cloudflareaccess.com`.                                 |
+| `CF_ACCESS_AUD`               | Cloudflare/hybrid HTTP | —              | Audience tag assigned to the protected Cloudflare Access application.                        |
+| `LOG_LEVEL`                   |                     No | `info`         | `debug`, `info`, `warn`, or `error`.                                                         |
 
 Boolean settings accept `true`, `false`, `1`, or `0`.
 
@@ -142,41 +146,135 @@ Build first, then add a server entry using the absolute path to `dist/src/index.
 
 Restart the client after changing its MCP configuration. Prefer an OS secret manager or client-supported secret injection instead of storing a password directly in client JSON.
 
-### Streamable HTTP
+### Streamable HTTP authentication
 
-Set:
+The endpoint remains `/mcp`. Start with the common HTTP settings, then choose an authentication mode:
 
 ```dotenv
 MCP_TRANSPORT=http
 MCP_HTTP_HOST=127.0.0.1
 MCP_HTTP_PORT=3000
 MCP_HTTP_PATH=/mcp
-MCP_HTTP_BEARER_TOKEN=replace_with_a_long_random_secret
+MCP_HTTP_ALLOWED_HOSTS=
+MCP_AUTH_MODE=bearer
+MCP_AUTH_TOKEN=replace_with_a_long_random_secret
 ```
 
-Then run:
-
 ```powershell
+npm run build
 npm start
 ```
 
-The endpoint is `http://127.0.0.1:3000/mcp`. Clients must send `Authorization: Bearer <token>`. Missing or incorrect credentials receive `401 Unauthorized`. The v2 handler serves current MCP clients and a stateless legacy fallback from the same tool factory.
+| Mode         | Accepted request credentials                                         | Intended use                                     |
+| ------------ | -------------------------------------------------------------------- | ------------------------------------------------ |
+| `none`       | None                                                                 | Loopback-only local development.                 |
+| `bearer`     | `Authorization: Bearer <MCP_AUTH_TOKEN>`                             | Codex CLI and other trusted developer clients.   |
+| `cloudflare` | A verified JWT in `Cf-Access-Jwt-Assertion`                          | Only traffic authenticated by Cloudflare Access. |
+| `hybrid`     | Either the static bearer token or the verified Cloudflare Access JWT | Recommended when both client paths are required. |
 
-The token provides shared-secret authentication but not encryption. Do not expose plain HTTP to an untrusted network. For remote clients, use TLS, a restrictive firewall or reverse proxy, and a precise `MCP_HTTP_ALLOWED_HOSTS` list.
+Authentication applies only to HTTP. Stdio continues to rely on the local process boundary. Missing, malformed, expired, wrongly signed, or incorrectly scoped credentials receive a generic `401 Unauthorized`; `403` is reserved for future authorization rules.
 
-### Codex over Streamable HTTP
+`MCP_HTTP_BEARER_TOKEN` remains accepted as a backward-compatible alias. Prefer `MCP_AUTH_TOKEN` for new deployments. If both variables are present, they must contain the same value.
 
-Start the server as described above. In the shell that launches Codex, set the same token and register the endpoint:
+### Codex and developer tools: static bearer token
+
+Use an endpoint that is not intercepted by a Cloudflare Access application. The origin server still validates the static token in `bearer` or `hybrid` mode:
 
 ```powershell
-$env:MCP_HTTP_BEARER_TOKEN = "replace_with_the_same_secret_used_by_the_server"
+$env:POS_SQL_MCP_TOKEN = "the_same_value_as_the_server_MCP_AUTH_TOKEN"
 codex mcp add pos_sql_http `
-  --url http://127.0.0.1:3000/mcp `
-  --bearer-token-env-var MCP_HTTP_BEARER_TOKEN
+  --url https://mcp-dev.example.com/mcp `
+  --bearer-token-env-var POS_SQL_MCP_TOKEN
 codex mcp list
 ```
 
-Codex stores only the environment-variable name in its MCP configuration. The Codex process must have `MCP_HTTP_BEARER_TOKEN` in its environment whenever it connects, so launch it from that shell or configure the variable through your usual secret-management process.
+Codex stores the environment-variable name, not the token value. The Codex process must inherit `POS_SQL_MCP_TOKEN` whenever it connects; restart Codex from the configured shell after changing it.
+
+Quick bearer checks:
+
+```powershell
+curl.exe -i https://mcp-dev.example.com/mcp
+curl.exe -i -H "Authorization: Bearer $env:POS_SQL_MCP_TOKEN" https://mcp-dev.example.com/mcp
+```
+
+The first response must be `401`. The second may be an MCP method/content-type response rather than `200` for a bare GET, but it must not be the origin authentication `401`.
+
+### ChatGPT and Claude: Cloudflare Access Managed OAuth
+
+[Cloudflare Managed OAuth](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/managed-oauth/) is the OAuth authorization server. This application is only the protected resource server; it does not implement OAuth endpoints or store OAuth clients.
+
+The request flow is:
+
+```text
+ChatGPT or Claude -> opaque OAuth token -> Cloudflare Access
+Cloudflare Access -> Cf-Access-Jwt-Assertion -> this MCP server
+this MCP server -> verify JWKS signature + issuer + audience + expiration -> MCP tools
+```
+
+Cloudflare says Managed OAuth client tokens are opaque. Access resolves them at the edge and sends a signed application assertion to the origin. The server validates that assertion against `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs`; decoding without signature verification is never accepted. See Cloudflare's [JWT validation guide](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/).
+
+Configure the origin for both authentication paths:
+
+```dotenv
+MCP_AUTH_MODE=hybrid
+MCP_AUTH_TOKEN=replace_with_a_long_random_secret
+CF_ACCESS_TEAM_DOMAIN=https://example.cloudflareaccess.com
+CF_ACCESS_AUD=replace_with_the_access_application_aud
+MCP_HTTP_ALLOWED_HOSTS=mcp-dev.example.com,mcpsql01.example.com
+```
+
+`CF_ACCESS_TEAM_DOMAIN` must be the HTTPS `*.cloudflareaccess.com` team domain with no path. `CF_ACCESS_AUD` must be the unique Audience (AUD) tag of the Access application protecting the OAuth hostname.
+
+#### Cloudflare configuration to complete manually
+
+1. In the Cloudflare Tunnel, publish two hostnames to the same origin service, for example `http://127.0.0.1:3000`:
+   - `mcp-dev.example.com` for Codex/static bearer traffic.
+   - `mcpsql01.example.com` for Access Managed OAuth traffic.
+2. Keep the developer hostname outside the Access application. If organizational policy requires Access everywhere, use a narrowly scoped bypass that is appropriate for your environment; an Access-protected hostname will process the `Authorization` header before the origin can validate the arbitrary static bearer token.
+3. Go to **Zero Trust > Access controls > Applications** and create or edit a self-hosted/MCP application for only `mcpsql01.example.com`. Protect the whole OAuth hostname so Cloudflare's `/.well-known/` discovery endpoints and `/mcp` share the same application.
+4. Add an **Allow** policy for the exact users, groups, identity provider, and any device posture your POS access policy requires. Do not create a broad public bypass on this OAuth hostname.
+5. On the application's **Advanced settings** tab, enable **Managed OAuth**.
+6. Configure Managed OAuth redirect settings:
+   - Allow the exact redirect URI displayed or dynamically registered by ChatGPT during app creation; do not guess a ChatGPT callback URI.
+   - For Claude, allow `https://claude.ai/api/mcp/auth_callback` and the forward-compatible `https://claude.com/api/mcp/auth_callback`.
+   - Enable localhost or loopback clients only if you will use a local MCP Inspector/client callback.
+7. Use a short Access token lifetime (Cloudflare recommends 5–15 minutes for agents/CLIs) and a longer grant session (typically 1–2 weeks) so refresh tokens can re-evaluate Access policy without frequent interactive login.
+8. Save the application, copy its **Application Audience (AUD) tag** into `CF_ACCESS_AUD`, and put your Zero Trust team domain into `CF_ACCESS_TEAM_DOMAIN`. The Access Applications API exposes the same value as the application's `aud` field if you need to retrieve it programmatically.
+9. Confirm both public hostnames are listed in `MCP_HTTP_ALLOWED_HOSTS`, then restart the MCP server. Cloudflare Tunnel preserves the public Host header, so the existing allowlist remains enforced.
+
+Do not configure an OAuth client secret in this server. Dynamic client registration, consent, authorization codes, access tokens, refresh tokens, and OAuth discovery are Cloudflare's responsibility.
+
+#### Test with ChatGPT
+
+ChatGPT custom MCP apps require a remote HTTPS endpoint and an eligible workspace/account. Following the current [OpenAI developer-mode guide](https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt):
+
+1. Enable developer mode for the account/workspace.
+2. Go to **Settings > Apps > Create** or **Workspace settings > Apps > Create**.
+3. Enter `https://mcpsql01.example.com/mcp` and select OAuth authentication.
+4. Select **Scan Tools**, complete the Cloudflare Access browser login, and wait for the scan to finish.
+5. Create/enable the draft app, open a new chat, select it from the tools/apps menu, and ask it to run `health_check` and then `list_tables`.
+6. Confirm the server log contains `MCP tool audit` with `authenticationType: "cloudflare"`, the Access email/subject, the tool name, and `outcome: "success"`.
+
+Because this server exposes write tools, review and restrict the app's write actions before publishing it to the workspace. Start testing with the read-only health and discovery tools.
+
+#### Test with Claude
+
+In Claude, go to **Customize > Connectors**, add a custom connector, enter `https://mcpsql01.example.com/mcp`, then select **Connect** and complete the Cloudflare Access login. Team/Enterprise owners add it first under **Organization settings > Connectors**. Enable the connector in a conversation and run `health_check`.
+
+#### Direct Cloudflare checks
+
+Before adding an AI client, request the protected URL without credentials:
+
+```powershell
+curl.exe -i https://mcpsql01.example.com/mcp
+```
+
+Managed OAuth should return a Cloudflare `401` with a `WWW-Authenticate` challenge pointing to OAuth discovery, rather than the origin's plain `{"error":"Unauthorized"}` response. You can also inspect:
+
+```text
+https://mcpsql01.example.com/.well-known/oauth-authorization-server
+https://example.cloudflareaccess.com/cdn-cgi/access/certs
+```
 
 ## Tool reference
 
@@ -340,6 +438,8 @@ This server is intended for trusted internal use, but it still applies useful gu
 - SQL length, returned rows, request time, pool size, and transaction steps are bounded.
 - Credentials and parameter values are not logged.
 - HTTP validates Host headers and defaults to loopback.
+- Cloudflare assertions are verified cryptographically against cached Access JWKS keys, including issuer, audience, and expiration checks.
+- HTTP tool audits record the authentication type and safe identity claims, tool, outcome, timestamp, and execution time without recording bearer tokens or raw JWTs.
 
 The lightweight SQL inspection is accident prevention, not a complete T-SQL security boundary. Use a dedicated least-privilege SQL login. For read-only deployments, set `DB_ALLOW_WRITE=false`, `DB_ALLOW_DELETE=false`, and consider `DB_ALLOW_PROCEDURES=false` because procedures can write internally.
 
@@ -367,6 +467,7 @@ npx @modelcontextprotocol/inspector node dist/src/index.js
 
 ```text
 src/
+  auth/         Bearer and Cloudflare Access request authentication
   config/       Environment validation
   database/     Pool, parameters, execution, and metadata
   server/       MCP factory and transports
@@ -409,8 +510,20 @@ Anything written to stdout corrupts the MCP channel. This implementation logs to
 
 ### HTTP works locally but not remotely
 
-Non-loopback binding requires `MCP_HTTP_ALLOWED_HOSTS`. Confirm that the client sends the configured bearer token. Remote use also needs firewall routing and TLS, usually provided by infrastructure in front of this server.
+Non-loopback binding requires `MCP_HTTP_ALLOWED_HOSTS`. Include the public Cloudflare hostname, not only the local bind address. Confirm the Tunnel route targets the configured host/port and that TLS terminates at Cloudflare.
+
+### Codex reports `Auth required` or always gets `Forbidden`
+
+Use the developer hostname that is outside the Cloudflare Access application. Confirm that its `Authorization: Bearer ...` value equals the server's `MCP_AUTH_TOKEN`, that `MCP_AUTH_MODE` is `bearer` or `hybrid`, and that the Codex process inherited the environment variable named by `--bearer-token-env-var`. Restart Codex after changing the variable. A static bearer token sent to the Managed OAuth hostname is handled by Access before it reaches this server.
+
+### Cloudflare OAuth login succeeds but the origin returns `401`
+
+Confirm `CF_ACCESS_TEAM_DOMAIN` is the correct team domain and `CF_ACCESS_AUD` exactly matches the protected application's Audience tag. Check system time, outbound HTTPS access to `/cdn-cgi/access/certs`, and that the Tunnel has not removed `Cf-Access-Jwt-Assertion`. The server intentionally fails closed when signing keys cannot be fetched or any JWT check fails.
+
+### ChatGPT or Claude cannot discover OAuth
+
+Request the protected hostname without credentials and confirm Cloudflare returns `401` plus `WWW-Authenticate`, not a `302` browser redirect. Recheck that Managed OAuth is enabled on the correct Access application and that the client's exact redirect URI is allowed. Do not add OAuth routes to this application; discovery and token endpoints belong to Cloudflare.
 
 ## Production hardening extension points
 
-For wider deployment, replace or augment the shared token with per-client authentication and authorization, then add TLS, schema/table/procedure allowlists, mutation confirmation, audit storage, rate limiting, monitoring, and a full T-SQL parser. These can be added around the existing transport, tool, and database-service boundaries.
+For wider deployment, add authorization rules based on the verified Cloudflare identity, persistent audit storage, schema/table/procedure allowlists, mutation confirmation, rate limiting, monitoring, and a full T-SQL parser. These can be added around the existing authentication, transport, tool, and database-service boundaries.
