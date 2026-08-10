@@ -35,6 +35,7 @@
     "@modelcontextprotocol/node": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "dotenv": "^17.4.2",
+    "jose": "^6.2.8",
     "mssql": "^12.7.0",
     "zod": "^4.4.3"
   },
