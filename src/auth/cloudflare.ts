@@ -43,7 +43,10 @@ export function createCloudflareAccessVerifier(
           typeof payload.sub !== 'string' ||
           payload.sub === '' ||
           typeof payload.iss !== 'string' ||
-          (typeof payload.aud !== 'string' && !Array.isArray(payload.aud))
+          (typeof payload.aud !== 'string' &&
+            (!Array.isArray(payload.aud) ||
+              payload.aud.length === 0 ||
+              !payload.aud.every((item) => typeof item === 'string')))
         ) {
           throw new Error('Required Cloudflare Access claims are missing');
         }

@@ -90,7 +90,7 @@ export async function startHttp(
         if (error instanceof AuthenticationError) {
           logger.warn('HTTP authentication rejected', {
             reason: error.reason,
-            attemptedCredentials: error.attemptedCredentials
+            attemptedAuthenticationTypes: error.attemptedCredentials
           });
         } else {
           // Do not include verifier errors here: JWT/JWKS failures may contain sensitive details.
