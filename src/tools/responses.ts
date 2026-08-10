@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import type { CallToolResult } from '@modelcontextprotocol/server';
+import type { CallToolResult, ServerContext } from '@modelcontextprotocol/server';
 import { normalizeError } from '../utils/errors.js';
 import type { Logger } from '../utils/logger.js';
 
@@ -40,19 +40,66 @@ export function errorResult(
 export function withToolErrors<TArgs>(
   toolName: string,
   logger: Logger,
-  handler: (args: TArgs) => Promise<CallToolResult>
-): (args: TArgs) => Promise<CallToolResult> {
-  return async (args) => {
+  handler: (args: TArgs, context: ServerContext) => Promise<CallToolResult>
+): (args: TArgs, context: ServerContext) => Promise<CallToolResult> {
+  return async (args, context) => {
     const start = performance.now();
     try {
-      const result = await handler(args);
+      const result = await handler(args, context);
+      const executionTimeMs = Number((performance.now() - start).toFixed(2));
       logger.debug('MCP tool completed', {
         tool: toolName,
-        executionTimeMs: Number((performance.now() - start).toFixed(2))
+        executionTimeMs
       });
+      logHttpAudit(logger, toolName, 'success', executionTimeMs, context);
       return result;
     } catch (error) {
-      return errorResult(error, logger, toolName, Number((performance.now() - start).toFixed(2)));
+      const executionTimeMs = Number((performance.now() - start).toFixed(2));
+      const result = errorResult(error, logger, toolName, executionTimeMs);
+      logHttpAudit(logger, toolName, 'failure', executionTimeMs, context);
+      return result;
     }
   };
+}
+
+function logHttpAudit(
+  logger: Logger,
+  toolName: string,
+  outcome: 'success' | 'failure',
+  executionTimeMs: number,
+  context: ServerContext
+): void {
+  const authInfo = context.http?.authInfo;
+  const extra = authInfo?.extra;
+  const authenticationType = extra?.authenticationType;
+  if (
+    authInfo === undefined ||
+    (authenticationType !== 'none' &&
+      authenticationType !== 'bearer' &&
+      authenticationType !== 'cloudflare')
+  ) {
+    return;
+  }
+
+  const subject =
+    typeof extra?.subject === 'string' && extra.subject !== '' ? extra.subject : authInfo.clientId;
+  const email = typeof extra?.email === 'string' && extra.email !== '' ? extra.email : undefined;
+  const issuer =
+    typeof extra?.issuer === 'string' && extra.issuer !== '' ? extra.issuer : undefined;
+  const audience =
+    typeof extra?.audience === 'string' ||
+    (Array.isArray(extra?.audience) && extra.audience.every((item) => typeof item === 'string'))
+      ? extra.audience
+      : undefined;
+
+  logger.info('MCP tool audit', {
+    tool: toolName,
+    outcome,
+    executionTimeMs,
+    authenticationType,
+    subject,
+    ...(email === undefined ? {} : { email }),
+    ...(issuer === undefined ? {} : { issuer }),
+    ...(audience === undefined ? {} : { audience })
+  });
 }

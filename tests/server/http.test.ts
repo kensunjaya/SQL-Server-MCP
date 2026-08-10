@@ -228,11 +228,22 @@ describe('Streamable HTTP server', () => {
     await client.connect(transport);
     clients.push(client);
     await client.listTools();
+    await client.callTool({ name: 'health_check', arguments: {} });
 
     expect(contexts.some((context) => context.authInfo?.clientId === 'access-user-id')).toBe(true);
     expect(
       contexts.some((context) => context.authInfo?.extra?.authenticationType === 'cloudflare')
     ).toBe(true);
+    expect(logger.info).toHaveBeenCalledWith(
+      'MCP tool audit',
+      expect.objectContaining({
+        tool: 'health_check',
+        outcome: 'success',
+        authenticationType: 'cloudflare',
+        subject: 'access-user-id',
+        email: 'cashier@example.com'
+      })
+    );
   });
 
   it('requires an allowed-host list for non-loopback binding', async () => {
