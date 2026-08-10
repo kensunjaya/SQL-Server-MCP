@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import http from 'node:http';
-import type { McpServerFactory } from '@modelcontextprotocol/server';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import type { McpRequestContext, McpServerFactory } from '@modelcontextprotocol/server';
+import type { RequestAuthenticator } from '../../src/auth/authenticate.js';
 import { loadConfig } from '../../src/config/config.js';
 import { createMcpServer } from '../../src/server/create-server.js';
 import { startHttp, type HttpServerHandle } from '../../src/server/http.js';
@@ -9,6 +11,7 @@ import type { Logger } from '../../src/utils/logger.js';
 
 const logger: Logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 const handles: HttpServerHandle[] = [];
+const clients: Client[] = [];
 
 interface TestResponse {
   status: number;
@@ -77,7 +80,9 @@ function dependencies() {
 }
 
 afterEach(async () => {
+  await Promise.all(clients.splice(0).map((client) => client.close()));
   await Promise.all(handles.splice(0).map((handle) => handle.close()));
+  vi.clearAllMocks();
 });
 
 describe('Streamable HTTP server', () => {
@@ -122,6 +127,112 @@ describe('Streamable HTTP server', () => {
 
     const invalidHostStatus = await requestStatus(handle.url, 'evil.example');
     expect([403, 421]).toContain(invalidHostStatus);
+  });
+
+  it('allows requests without credentials in none mode', async () => {
+    const setup = dependencies();
+    const config = {
+      ...setup.config,
+      auth: { mode: 'none' as const },
+      transport: { ...setup.config.transport, httpPort: 0 }
+    };
+    const handle = await startHttp(() => createMcpServer(setup.dependencies), config, logger);
+    handles.push(handle);
+
+    expect((await request(handle.url)).status).not.toBe(401);
+  });
+
+  it('uses the reusable authenticator for Cloudflare Access requests', async () => {
+    const setup = dependencies();
+    const config = {
+      ...setup.config,
+      auth: {
+        mode: 'cloudflare' as const,
+        cloudflare: {
+          teamDomain: 'https://example.cloudflareaccess.com',
+          audience: 'application-audience'
+        }
+      },
+      transport: { ...setup.config.transport, httpPort: 0 }
+    };
+    const authenticator: RequestAuthenticator = {
+      authenticateRequest: vi.fn().mockResolvedValue({
+        credential: 'signed.cloudflare.jwt',
+        identity: {
+          type: 'cloudflare',
+          subject: 'access-user-id',
+          email: 'cashier@example.com',
+          issuer: 'https://example.cloudflareaccess.com',
+          audience: 'application-audience',
+          expiresAt: 1_900_000_000
+        }
+      })
+    };
+    const handle = await startHttp(
+      () => createMcpServer(setup.dependencies),
+      config,
+      logger,
+      authenticator
+    );
+    handles.push(handle);
+
+    const response = await request(handle.url, {
+      'cf-access-jwt-assertion': 'signed.cloudflare.jwt'
+    });
+
+    expect(response.status).not.toBe(401);
+    expect(authenticator.authenticateRequest).toHaveBeenCalledOnce();
+  });
+
+  it('passes verified identity to the MCP request context', async () => {
+    const setup = dependencies();
+    const config = {
+      ...setup.config,
+      auth: {
+        mode: 'cloudflare' as const,
+        cloudflare: {
+          teamDomain: 'https://example.cloudflareaccess.com',
+          audience: 'application-audience'
+        }
+      },
+      transport: { ...setup.config.transport, httpPort: 0 }
+    };
+    const authenticator: RequestAuthenticator = {
+      authenticateRequest: vi.fn().mockResolvedValue({
+        credential: 'signed.cloudflare.jwt',
+        identity: {
+          type: 'cloudflare',
+          subject: 'access-user-id',
+          email: 'cashier@example.com',
+          issuer: 'https://example.cloudflareaccess.com',
+          audience: 'application-audience',
+          expiresAt: 1_900_000_000
+        }
+      })
+    };
+    const contexts: McpRequestContext[] = [];
+    const factory: McpServerFactory = (context) => {
+      contexts.push(context);
+      return createMcpServer(setup.dependencies);
+    };
+    const handle = await startHttp(factory, config, logger, authenticator);
+    handles.push(handle);
+    const transport = new StreamableHTTPClientTransport(new URL(handle.url), {
+      requestInit: { headers: { 'cf-access-jwt-assertion': 'signed.cloudflare.jwt' } }
+    });
+    const client = new Client(
+      { name: 'auth-context-test', version: '1.0.0' },
+      { versionNegotiation: { mode: 'auto' } }
+    );
+
+    await client.connect(transport);
+    clients.push(client);
+    await client.listTools();
+
+    expect(contexts.some((context) => context.authInfo?.clientId === 'access-user-id')).toBe(true);
+    expect(
+      contexts.some((context) => context.authInfo?.extra?.authenticationType === 'cloudflare')
+    ).toBe(true);
   });
 
   it('requires an allowed-host list for non-loopback binding', async () => {
