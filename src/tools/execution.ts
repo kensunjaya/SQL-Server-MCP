@@ -2,12 +2,19 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import type { AppConfig } from '../config/config.js';
 import type { SqlExecutor } from '../database/executor.js';
 import type { Logger } from '../utils/logger.js';
-import { mutationSchema, procedureSchema, selectSchema, transactionSchema } from './schemas.js';
+import {
+  ddlSchema,
+  mutationSchema,
+  procedureSchema,
+  selectSchema,
+  transactionSchema
+} from './schemas.js';
 import { successResult, withToolErrors } from './responses.js';
 
 export interface ExecutionToolsService {
   select: SqlExecutor['select'];
   mutate: SqlExecutor['mutate'];
+  executeDdl: SqlExecutor['executeDdl'];
   executeProcedure: SqlExecutor['executeProcedure'];
   executeTransaction: SqlExecutor['executeTransaction'];
 }
@@ -91,6 +98,45 @@ export function registerExecutionTools(
         );
       })
     );
+  }
+
+  if (config.features.allowDdl) {
+    for (const operation of [
+      {
+        kind: 'createTable',
+        toolName: 'execute_create_table',
+        title: 'Execute a CREATE TABLE statement',
+        label: 'CREATE TABLE'
+      },
+      {
+        kind: 'alterTable',
+        toolName: 'execute_alter_table',
+        title: 'Execute an ALTER TABLE statement',
+        label: 'ALTER TABLE'
+      }
+    ] as const) {
+      server.registerTool(
+        operation.toolName,
+        {
+          title: operation.title,
+          description: `Execute one ${operation.label} statement. This tool is configuration-gated.`,
+          inputSchema: ddlSchema,
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: true,
+            idempotentHint: false,
+            openWorldHint: false
+          }
+        },
+        withToolErrors(operation.toolName, logger, async (args) => {
+          const result = await executor.executeDdl(operation.kind, args);
+          return successResult(
+            `${operation.label} completed in ${result.executionTimeMs} ms.`,
+            result
+          );
+        })
+      );
+    }
   }
 
   server.registerTool(

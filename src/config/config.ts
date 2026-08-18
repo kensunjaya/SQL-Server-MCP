@@ -31,6 +31,7 @@ export interface AppConfig {
   features: {
     allowWrite: boolean;
     allowDelete: boolean;
+    allowDdl: boolean;
     allowProcedures: boolean;
     allowTransactions: boolean;
   };
@@ -113,6 +114,7 @@ const envSchema = z
     DB_MAX_TRANSACTION_STEPS: integerValue(20, 1, 1_000),
     DB_ALLOW_WRITE: booleanValue(true),
     DB_ALLOW_DELETE: booleanValue(false),
+    DB_ALLOW_DDL: booleanValue(false),
     DB_ALLOW_PROCEDURES: booleanValue(true),
     DB_ALLOW_TRANSACTIONS: booleanValue(true),
     MCP_TRANSPORT: z.enum(['stdio', 'http']).default('stdio'),
@@ -248,6 +250,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     features: Object.freeze({
       allowWrite: value.DB_ALLOW_WRITE,
       allowDelete: value.DB_ALLOW_DELETE,
+      allowDdl: value.DB_ALLOW_DDL,
       allowProcedures: value.DB_ALLOW_PROCEDURES,
       allowTransactions: value.DB_ALLOW_TRANSACTIONS
     }),

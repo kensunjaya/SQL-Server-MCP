@@ -29,6 +29,7 @@ describe('MCP protocol compatibility', () => {
       executor: {
         select: vi.fn(),
         mutate: vi.fn(),
+        executeDdl: vi.fn(),
         executeProcedure: vi.fn(),
         executeTransaction: vi.fn(),
         health: vi.fn().mockResolvedValue({

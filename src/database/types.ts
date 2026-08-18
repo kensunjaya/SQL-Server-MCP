@@ -29,6 +29,10 @@ export interface MutationResult extends BoundedRecordsets {
   executionTimeMs: number;
 }
 
+export interface DdlResult {
+  executionTimeMs: number;
+}
+
 export interface ProcedureResult extends MutationResult {
   output: Record<string, unknown>;
   returnValue: unknown;

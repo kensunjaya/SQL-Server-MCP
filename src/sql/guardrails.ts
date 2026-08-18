@@ -1,6 +1,7 @@
 import { AppError } from '../utils/errors.js';
 
-export type StatementKind = 'select' | 'insert' | 'update' | 'delete';
+export type DdlStatementKind = 'createTable' | 'alterTable';
+export type StatementKind = 'select' | 'insert' | 'update' | 'delete' | DdlStatementKind;
 
 export interface ValidatedSql {
   sql: string;
@@ -34,12 +35,24 @@ const globallyForbidden = new Set([
   'TRUNCATE',
   'USE'
 ]);
-const crossOperation: Record<StatementKind, ReadonlySet<string>> = {
+const crossOperation: Partial<Record<StatementKind, ReadonlySet<string>>> = {
   select: new Set(['INSERT', 'UPDATE', 'DELETE']),
   insert: new Set(['UPDATE', 'DELETE']),
   update: new Set(['INSERT', 'DELETE']),
   delete: new Set(['INSERT', 'UPDATE'])
 };
+
+function statementLabel(kind: StatementKind): string {
+  if (kind === 'createTable') return 'CREATE TABLE';
+  if (kind === 'alterTable') return 'ALTER TABLE';
+  return kind.toUpperCase();
+}
+
+function isAllowedDdlKeyword(token: Token, index: number, expectedKind: StatementKind): boolean {
+  if (index === 0 && expectedKind === 'createTable' && token.value === 'CREATE') return true;
+  if (index === 0 && expectedKind === 'alterTable' && token.value === 'ALTER') return true;
+  return expectedKind === 'alterTable' && token.value === 'DROP';
+}
 
 function validationError(message: string): never {
   throw new AppError('VALIDATION_ERROR', message);
@@ -167,6 +180,14 @@ function operationFromTokens(tokens: readonly Token[]): StatementKind {
   const first = tokens[0];
   if (first?.kind !== 'word') validationError('SQL must begin with an operation keyword');
 
+  if (first.value === 'CREATE' || first.value === 'ALTER') {
+    const second = tokens[1];
+    if (second?.kind !== 'word' || second.value !== 'TABLE') {
+      validationError(`Only ${first.value} TABLE statements are supported`);
+    }
+    return first.value === 'CREATE' ? 'createTable' : 'alterTable';
+  }
+
   if (first.value !== 'WITH') {
     const kind = first.value.toLowerCase();
     if (!['select', 'insert', 'update', 'delete'].includes(kind)) {
@@ -218,18 +239,18 @@ export function validateSql(
   const actualKind = operationFromTokens(significant);
   if (actualKind !== expectedKind) {
     validationError(
-      `Expected a ${expectedKind.toUpperCase()} statement but received ${actualKind.toUpperCase()}`
+      `Expected a ${statementLabel(expectedKind)} statement but received ${statementLabel(actualKind)}`
     );
   }
 
-  for (const token of significant) {
+  for (const [index, token] of significant.entries()) {
     if (token.kind !== 'word') continue;
-    if (globallyForbidden.has(token.value)) {
+    if (globallyForbidden.has(token.value) && !isAllowedDdlKeyword(token, index, expectedKind)) {
       validationError(`SQL keyword ${token.value} is not allowed`);
     }
-    if (crossOperation[expectedKind].has(token.value)) {
+    if (crossOperation[expectedKind]?.has(token.value)) {
       validationError(
-        `SQL keyword ${token.value} is not allowed in a ${expectedKind.toUpperCase()} statement`
+        `SQL keyword ${token.value} is not allowed in a ${statementLabel(expectedKind)} statement`
       );
     }
     if (expectedKind === 'select' && token.value === 'INTO') {

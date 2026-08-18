@@ -10,13 +10,14 @@ import type { Logger } from '../../src/utils/logger.js';
 const logger: Logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 const clients: Client[] = [];
 
-function dependencies(allowDelete: boolean): ToolDependencies {
+function dependencies(allowDelete: boolean, allowDdl = false): ToolDependencies {
   const config = loadConfig({
     DB_SERVER: 'localhost',
     DB_DATABASE: 'PosDb',
     DB_USER: 'user',
     DB_PASSWORD: 'password',
-    DB_ALLOW_DELETE: String(allowDelete)
+    DB_ALLOW_DELETE: String(allowDelete),
+    DB_ALLOW_DDL: String(allowDdl)
   });
   return {
     config,
@@ -47,6 +48,7 @@ function dependencies(allowDelete: boolean): ToolDependencies {
         affectedRows: 1,
         executionTimeMs: 1
       }),
+      executeDdl: vi.fn().mockResolvedValue({ executionTimeMs: 1 }),
       executeProcedure: vi.fn().mockResolvedValue({
         recordsets: [],
         returnedRows: 0,
@@ -88,10 +90,12 @@ afterEach(async () => {
 
 describe('MCP SQL Server tools', () => {
   it('registers the complete enabled tool set', async () => {
-    const client = await connectedClient(dependencies(true));
+    const client = await connectedClient(dependencies(true, true));
     expect((await client.listTools()).tools.map((tool) => tool.name).sort()).toEqual(
       [
         'describe_table',
+        'execute_alter_table',
+        'execute_create_table',
         'execute_delete',
         'execute_insert',
         'execute_select',
@@ -114,6 +118,26 @@ describe('MCP SQL Server tools', () => {
     expect((await client.listTools()).tools.map((tool) => tool.name)).not.toContain(
       'execute_delete'
     );
+  });
+
+  it('does not advertise table DDL while disabled', async () => {
+    const client = await connectedClient(dependencies(true));
+    const tools = (await client.listTools()).tools.map((tool) => tool.name);
+    expect(tools).not.toContain('execute_create_table');
+    expect(tools).not.toContain('execute_alter_table');
+  });
+
+  it('routes CREATE TABLE through the dedicated DDL executor', async () => {
+    const deps = dependencies(false, true);
+    const client = await connectedClient(deps);
+    const sql = 'CREATE TABLE dbo.Items (Id int NOT NULL PRIMARY KEY)';
+    const result = await client.callTool({
+      name: 'execute_create_table',
+      arguments: { sql }
+    });
+
+    expect(result.isError).not.toBe(true);
+    expect(deps.executor.executeDdl).toHaveBeenCalledWith('createTable', { sql });
   });
 
   it('returns text and structured SELECT content', async () => {

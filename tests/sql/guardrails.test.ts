@@ -11,7 +11,14 @@ describe('validateSql', () => {
     ['SELECT [DROP], "DELETE" FROM dbo.Safe', 'select'],
     ['UPDATE dbo.Items SET Price = @price WHERE Id = @id;', 'update'],
     ['INSERT dbo.Items(Name) VALUES (@name)', 'insert'],
-    ['DELETE dbo.Items WHERE Id = @id', 'delete']
+    ['DELETE dbo.Items WHERE Id = @id', 'delete'],
+    ['CREATE TABLE dbo.Items (Id int NOT NULL PRIMARY KEY);', 'createTable'],
+    ['ALTER TABLE dbo.Items ADD Name nvarchar(100) NULL', 'alterTable'],
+    ['ALTER TABLE dbo.Items DROP COLUMN OldName', 'alterTable'],
+    [
+      'CREATE TABLE dbo.Child (ParentId int REFERENCES dbo.Parent(Id) ON DELETE CASCADE)',
+      'createTable'
+    ]
   ])('accepts %s as %s', (sql, kind) => {
     expect(validateSql(sql, kind, 10_000).kind).toBe(kind);
   });
@@ -35,12 +42,21 @@ describe('validateSql', () => {
     expect(() => validateSql(sql, 'select', 10_000)).toThrow(AppError);
   });
 
-  it.each(['CREATE TABLE X(Id int)', 'DBCC CHECKDB', 'USE master', 'MERGE dbo.T USING dbo.S'])(
+  it.each(['DBCC CHECKDB', 'USE master', 'MERGE dbo.T USING dbo.S'])(
     'rejects unsupported operation %s',
     (sql) => {
       expect(() => validateSql(sql, 'select', 10_000)).toThrow(AppError);
     }
   );
+
+  it.each<[string, StatementKind]>([
+    ['CREATE VIEW dbo.V AS SELECT 1 AS Id', 'createTable'],
+    ['ALTER DATABASE PosDb SET READ_ONLY', 'alterTable'],
+    ['DROP TABLE dbo.Items', 'alterTable'],
+    ['CREATE TABLE dbo.X (Id int); DROP TABLE dbo.X', 'createTable']
+  ])('rejects unsupported DDL input: %s', (sql, kind) => {
+    expect(() => validateSql(sql, kind, 10_000)).toThrow(AppError);
+  });
 
   it('rejects a different operation than the tool expects', () => {
     expect(() => validateSql('UPDATE dbo.T SET x = 1', 'select', 1000)).toThrow(

@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import sql from 'mssql';
 import type { AppConfig } from '../config/config.js';
-import { validateSql, type StatementKind } from '../sql/guardrails.js';
+import { validateSql, type DdlStatementKind, type StatementKind } from '../sql/guardrails.js';
 import { parseMultipartIdentifier, quoteIdentifierParts } from '../sql/identifiers.js';
 import { AppError, normalizeError } from '../utils/errors.js';
 import { boundRecordsets, sumRowsAffected, toJsonValue } from '../utils/json.js';
@@ -12,6 +12,7 @@ import {
 } from './parameters.js';
 import type { PoolManager } from './pool.js';
 import type {
+  DdlResult,
   MutationResult,
   ProcedureParameter,
   ProcedureResult,
@@ -84,6 +85,18 @@ export class SqlExecutor {
     }
   }
 
+  private checkDdl(): void {
+    if (!this.config.features.allowWrite) {
+      throw new AppError('FEATURE_DISABLED', 'Database write operations are disabled');
+    }
+    if (!this.config.features.allowDdl) {
+      throw new AppError(
+        'FEATURE_DISABLED',
+        'CREATE TABLE and ALTER TABLE operations are disabled'
+      );
+    }
+  }
+
   async select(input: {
     sql: string;
     parameters?: SqlParameter[] | undefined;
@@ -142,6 +155,23 @@ export class SqlExecutor {
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw queryFailure(`${kind.toUpperCase()} statement failed`, error);
+    }
+  }
+
+  async executeDdl(kind: DdlStatementKind, input: { sql: string }): Promise<DdlResult> {
+    this.checkDdl();
+    const validated = validateSql(input.sql, kind, this.config.limits.maxSqlLength);
+    const start = performance.now();
+
+    try {
+      const pool = await this.pools.getPool();
+      const request = this.driver.request(pool);
+      await request.query(validated.sql);
+      return { executionTimeMs: elapsed(start) };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      const label = kind === 'createTable' ? 'CREATE TABLE' : 'ALTER TABLE';
+      throw queryFailure(`${label} statement failed`, error);
     }
   }
 

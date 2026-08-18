@@ -11,6 +11,7 @@ It supports local stdio clients and stateless Streamable HTTP, using the stable 
 - Return a paginated database-schema overview.
 - Execute parameterized SELECT, INSERT, and UPDATE statements.
 - Optionally expose DELETE; it is disabled by default.
+- Optionally execute CREATE TABLE and ALTER TABLE; table DDL is disabled by default.
 - Execute stored procedures with input, output, and input-output parameters.
 - Execute multiple statements in one transaction with automatic rollback.
 - Report affected rows, bounded recordsets, truncation, and execution time.
@@ -83,6 +84,7 @@ All configuration comes from environment variables. `.env` is loaded for command
 | `DB_MAX_TRANSACTION_STEPS`    |                     No | `20`           | Maximum statements in one transaction call.                                                  |
 | `DB_ALLOW_WRITE`              |                     No | `true`         | Enable INSERT, UPDATE, and transaction mutations.                                            |
 | `DB_ALLOW_DELETE`             |                     No | `false`        | Register and enable DELETE.                                                                  |
+| `DB_ALLOW_DDL`                |                     No | `false`        | Register and enable CREATE TABLE and ALTER TABLE; also requires `DB_ALLOW_WRITE=true`.       |
 | `DB_ALLOW_PROCEDURES`         |                     No | `true`         | Enable stored procedures, which may perform writes internally.                               |
 | `DB_ALLOW_TRANSACTIONS`       |                     No | `true`         | Enable multi-statement transactions.                                                         |
 | `MCP_TRANSPORT`               |                     No | `stdio`        | `stdio` or `http`.                                                                           |
@@ -289,6 +291,8 @@ https://example.cloudflareaccess.com/cdn-cgi/access/certs
 | `execute_insert`           | Execute one INSERT and return affected rows plus `OUTPUT` recordsets.                                |
 | `execute_update`           | Execute one UPDATE and return affected rows plus `OUTPUT` recordsets.                                |
 | `execute_delete`           | Execute one DELETE; registered only when `DB_ALLOW_DELETE=true`.                                     |
+| `execute_create_table`     | Execute one CREATE TABLE; registered only when `DB_ALLOW_DDL=true`.                                  |
+| `execute_alter_table`      | Execute one ALTER TABLE; registered only when `DB_ALLOW_DDL=true`.                                   |
 | `execute_stored_procedure` | Execute a one- or two-part procedure name with typed parameters.                                     |
 | `execute_transaction`      | Execute supported ordered statements atomically.                                                     |
 | `health_check`             | Check SQL connectivity and the pool state.                                                           |
@@ -336,6 +340,31 @@ Use `@name` placeholders in SQL and pass values separately. Never concatenate mo
   ]
 }
 ```
+
+### Table DDL
+
+Enable both write and DDL execution, then restart the MCP server:
+
+```dotenv
+DB_ALLOW_WRITE=true
+DB_ALLOW_DDL=true
+```
+
+Use `execute_create_table` or `execute_alter_table` with exactly one matching statement:
+
+```json
+{
+  "sql": "CREATE TABLE inventory.Categories (Id int IDENTITY(1,1) NOT NULL PRIMARY KEY, Name nvarchar(100) NOT NULL)"
+}
+```
+
+```json
+{
+  "sql": "ALTER TABLE inventory.Categories ADD IsActive bit NOT NULL CONSTRAINT DF_Categories_IsActive DEFAULT (1)"
+}
+```
+
+DDL identifiers and definitions are SQL syntax and cannot be supplied as query parameters. The SQL login still needs narrowly scoped SQL Server permissions for the target database, schema, and tables.
 
 ### Date and binary values
 
@@ -433,15 +462,15 @@ This server is intended for trusted internal use, but it still applies useful gu
 
 - Named values go through `mssql.Request.input`/`output` instead of string interpolation.
 - Raw-query tools accept one operation of the expected type.
-- Stacked statements, DDL, permission changes, `EXEC` inside raw SQL, `MERGE`, `DBCC`, backup/restore, `USE`, and `SELECT INTO` are rejected.
-- DELETE is disabled by default.
+- Stacked statements, unsupported DDL, permission changes, `EXEC` inside raw SQL, `MERGE`, `DBCC`, backup/restore, `USE`, and `SELECT INTO` are rejected.
+- DELETE and table DDL are disabled by default. DDL tools accept only CREATE TABLE or ALTER TABLE; they do not accept CREATE VIEW, ALTER DATABASE, or DROP TABLE.
 - SQL length, returned rows, request time, pool size, and transaction steps are bounded.
 - Credentials and parameter values are not logged.
 - HTTP validates Host headers and defaults to loopback.
 - Cloudflare assertions are verified cryptographically against cached Access JWKS keys, including issuer, audience, and expiration checks.
 - HTTP tool audits record the authentication type and safe identity claims, tool, outcome, timestamp, and execution time without recording bearer tokens or raw JWTs.
 
-The lightweight SQL inspection is accident prevention, not a complete T-SQL security boundary. Use a dedicated least-privilege SQL login. For read-only deployments, set `DB_ALLOW_WRITE=false`, `DB_ALLOW_DELETE=false`, and consider `DB_ALLOW_PROCEDURES=false` because procedures can write internally.
+The lightweight SQL inspection is accident prevention, not a complete T-SQL security boundary. Use a dedicated least-privilege SQL login. For read-only deployments, set `DB_ALLOW_WRITE=false`, `DB_ALLOW_DELETE=false`, `DB_ALLOW_DDL=false`, and consider `DB_ALLOW_PROCEDURES=false` because procedures can write internally.
 
 ## Development and verification
 
@@ -502,7 +531,7 @@ Grant the dedicated login only the catalog visibility and table/procedure permis
 
 ### Statement rejected by SQL validation
 
-Use exactly one statement and the matching tool. Move procedure calls to `execute_stored_procedure`; remove DDL or administrative commands. CTE-based reads must end in SELECT.
+Use exactly one statement and the matching tool. Move procedure calls to `execute_stored_procedure`. CREATE TABLE and ALTER TABLE require their dedicated tools and `DB_ALLOW_DDL=true`; other DDL and administrative commands remain unsupported. CTE-based reads must end in SELECT.
 
 ### MCP client reports malformed JSON on stdio
 

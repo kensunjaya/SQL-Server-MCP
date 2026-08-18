@@ -27,7 +27,7 @@ function request(result: unknown): RequestLike {
   };
 }
 
-function setup(results: unknown[], transaction?: TransactionLike) {
+function setup(results: unknown[], transaction?: TransactionLike, env: NodeJS.ProcessEnv = {}) {
   const requests = results.map((result) => request(result));
   const driver: ExecutorDriver = {
     request: vi.fn(() => {
@@ -44,7 +44,7 @@ function setup(results: unknown[], transaction?: TransactionLike) {
         }
     )
   };
-  return { driver, executor: new SqlExecutor(pools, loadConfig(baseEnv), driver) };
+  return { driver, executor: new SqlExecutor(pools, loadConfig({ ...baseEnv, ...env }), driver) };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -84,6 +84,35 @@ describe('SqlExecutor', () => {
     });
     expect(result).toMatchObject({ affectedRows: 3, rowsAffected: [1, 2] });
     expect(result.recordsets).toEqual([[{ id: 4 }]]);
+  });
+
+  it('rejects DDL when disabled', async () => {
+    const { executor } = setup([]);
+    await expect(
+      executor.executeDdl('createTable', { sql: 'CREATE TABLE dbo.T (Id int)' })
+    ).rejects.toMatchObject({ code: 'FEATURE_DISABLED' });
+    expect(pools.getPool).not.toHaveBeenCalled();
+  });
+
+  it('executes enabled CREATE TABLE and returns timing', async () => {
+    const { executor, driver } = setup([{}], undefined, { DB_ALLOW_DDL: 'true' });
+    const result = await executor.executeDdl('createTable', {
+      sql: 'CREATE TABLE dbo.T (Id int NOT NULL);'
+    });
+
+    expect(result.executionTimeMs).toBeGreaterThanOrEqual(0);
+    const usedRequest = vi.mocked(driver.request).mock.results[0]?.value;
+    expect(usedRequest?.query).toHaveBeenCalledWith('CREATE TABLE dbo.T (Id int NOT NULL)');
+  });
+
+  it('requires the global write flag for DDL', async () => {
+    const { executor } = setup([], undefined, {
+      DB_ALLOW_WRITE: 'false',
+      DB_ALLOW_DDL: 'true'
+    });
+    await expect(
+      executor.executeDdl('alterTable', { sql: 'ALTER TABLE dbo.T ADD Name nvarchar(50)' })
+    ).rejects.toMatchObject({ code: 'FEATURE_DISABLED' });
   });
 
   it('returns stored procedure output and return value', async () => {

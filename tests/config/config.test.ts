@@ -16,6 +16,7 @@ describe('loadConfig', () => {
     expect(config.limits.maxRows).toBe(500);
     expect(config.features.allowWrite).toBe(true);
     expect(config.features.allowDelete).toBe(false);
+    expect(config.features.allowDdl).toBe(false);
     expect(config.pool.max).toBe(10);
     expect(config.auth).toEqual({ mode: 'bearer' });
   });
@@ -25,10 +26,12 @@ describe('loadConfig', () => {
       ...required,
       DB_ENCRYPT: '0',
       DB_ALLOW_DELETE: '1',
+      DB_ALLOW_DDL: 'true',
       MCP_HTTP_PATH: 'database/mcp'
     });
     expect(config.database.encrypt).toBe(false);
     expect(config.features.allowDelete).toBe(true);
+    expect(config.features.allowDdl).toBe(true);
     expect(config.transport.httpPath).toBe('/database/mcp');
   });
 
