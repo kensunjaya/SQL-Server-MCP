@@ -30,6 +30,7 @@ interface DriverErrorLike {
   number?: unknown;
   state?: unknown;
   class?: unknown;
+  lineNumber?: unknown;
   message?: unknown;
 }
 
@@ -53,7 +54,8 @@ export function normalizeError(error: unknown): SafeError {
         driverCode,
         number: typeof error.number === 'number' ? error.number : undefined,
         state: typeof error.state === 'number' ? error.state : undefined,
-        severity: typeof error.class === 'number' ? error.class : undefined
+        severity: typeof error.class === 'number' ? error.class : undefined,
+        lineNumber: typeof error.lineNumber === 'number' ? error.lineNumber : undefined
       }).filter((entry): entry is [string, string | number] => entry[1] !== undefined)
     );
     const connectionCodes = new Set(['ELOGIN', 'ESOCKET', 'ECONNCLOSED', 'ENOTOPEN']);

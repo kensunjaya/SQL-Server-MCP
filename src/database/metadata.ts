@@ -231,23 +231,23 @@ export class MetadataService {
 
     const columnsResult = await this.execute(
       `SELECT
-        c.column_id AS ordinal,
-        c.name AS columnName,
-        ty.name AS typeName,
-        TYPE_SCHEMA_NAME(c.user_type_id) AS typeSchema,
-        c.max_length AS maxLength,
+        c.column_id AS [ordinal],
+        c.name AS [columnName],
+        ty.name AS [typeName],
+        TYPE_SCHEMA_NAME(c.user_type_id) AS [typeSchema],
+        c.max_length AS [maxLength],
         c.precision,
         c.scale,
-        c.is_nullable AS nullable,
-        c.is_identity AS identityColumn,
-        ic.seed_value AS identitySeed,
-        ic.increment_value AS identityIncrement,
-        c.is_computed AS computed,
-        cc.definition AS computedExpression,
-        cc.is_persisted AS persisted,
-        dc.definition AS defaultExpression,
-        c.collation_name AS collation,
-        pk.key_ordinal AS primaryKeyOrdinal
+        c.is_nullable AS [nullable],
+        c.is_identity AS [identityColumn],
+        ic.seed_value AS [identitySeed],
+        ic.increment_value AS [identityIncrement],
+        c.is_computed AS [computed],
+        cc.definition AS [computedExpression],
+        cc.is_persisted AS [persisted],
+        dc.definition AS [defaultExpression],
+        c.collation_name AS [collation],
+        pk.key_ordinal AS [primaryKeyOrdinal]
       FROM sys.tables AS t
       INNER JOIN sys.schemas AS s ON s.schema_id = t.schema_id
       INNER JOIN sys.columns AS c ON c.object_id = t.object_id
@@ -272,15 +272,15 @@ export class MetadataService {
 
     const foreignKeyQuery = `SELECT
       fk.name,
-      ps.name AS schemaName,
-      pt.name AS tableName,
-      rs.name AS referencedSchemaName,
-      rt.name AS referencedTableName,
-      pc.name AS columnName,
-      rc.name AS referencedColumnName,
-      fkc.constraint_column_id AS ordinal,
-      fk.update_referential_action_desc AS updateAction,
-      fk.delete_referential_action_desc AS deleteAction
+      ps.name AS [schemaName],
+      pt.name AS [tableName],
+      rs.name AS [referencedSchemaName],
+      rt.name AS [referencedTableName],
+      pc.name AS [columnName],
+      rc.name AS [referencedColumnName],
+      fkc.constraint_column_id AS [ordinal],
+      fk.update_referential_action_desc AS [updateAction],
+      fk.delete_referential_action_desc AS [deleteAction]
     FROM sys.foreign_keys AS fk
     INNER JOIN sys.foreign_key_columns AS fkc ON fkc.constraint_object_id = fk.object_id
     INNER JOIN sys.tables AS pt ON pt.object_id = fk.parent_object_id
