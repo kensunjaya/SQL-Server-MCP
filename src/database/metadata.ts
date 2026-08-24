@@ -255,12 +255,12 @@ export class MetadataService {
       LEFT JOIN sys.identity_columns AS ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id
       LEFT JOIN sys.computed_columns AS cc ON cc.object_id = c.object_id AND cc.column_id = c.column_id
       LEFT JOIN sys.default_constraints AS dc ON dc.object_id = c.default_object_id
-      LEFT JOIN (
-        SELECT ic2.object_id, ic2.column_id, ic2.key_ordinal
-        FROM sys.indexes AS i
-        INNER JOIN sys.index_columns AS ic2 ON ic2.object_id = i.object_id AND ic2.index_id = i.index_id
-        WHERE i.is_primary_key = 1
-      ) AS pk ON pk.object_id = c.object_id AND pk.column_id = c.column_id
+      LEFT JOIN sys.indexes AS pki
+        ON pki.object_id = c.object_id AND pki.is_primary_key = 1
+      LEFT JOIN sys.index_columns AS pk
+        ON pk.object_id = pki.object_id
+        AND pk.index_id = pki.index_id
+        AND pk.column_id = c.column_id
       WHERE s.name = @schema AND t.name = @table AND t.is_ms_shipped = 0
       ORDER BY c.column_id`,
       parameters
@@ -347,13 +347,12 @@ export class MetadataService {
             pk.key_ordinal AS primaryKeyOrdinal
           FROM sys.columns AS c
           INNER JOIN sys.types AS ty ON ty.user_type_id = c.user_type_id
-          LEFT JOIN (
-            SELECT ic.object_id, ic.column_id, ic.key_ordinal
-            FROM sys.indexes AS i
-            INNER JOIN sys.index_columns AS ic
-              ON ic.object_id = i.object_id AND ic.index_id = i.index_id
-            WHERE i.is_primary_key = 1
-          ) AS pk ON pk.object_id = c.object_id AND pk.column_id = c.column_id
+          LEFT JOIN sys.indexes AS pki
+            ON pki.object_id = c.object_id AND pki.is_primary_key = 1
+          LEFT JOIN sys.index_columns AS pk
+            ON pk.object_id = pki.object_id
+            AND pk.index_id = pki.index_id
+            AND pk.column_id = c.column_id
           WHERE c.object_id = p.objectId
           ORDER BY c.column_id
           FOR JSON PATH

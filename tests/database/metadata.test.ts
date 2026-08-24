@@ -100,6 +100,9 @@ describe('MetadataService', () => {
     const columnsQuery = vi.mocked(used[0]!.query).mock.calls[0]?.[0] ?? '';
     expect(columnsQuery).toContain('c.collation_name AS [collation]');
     expect(columnsQuery).not.toContain('c.collation_name AS collation');
+    expect(columnsQuery).toContain('LEFT JOIN sys.indexes AS pki');
+    expect(columnsQuery).toContain('LEFT JOIN sys.index_columns AS pk');
+    expect(columnsQuery).not.toContain(') AS pk');
     for (const usedRequest of used) {
       expect(usedRequest.input).toHaveBeenCalledWith('schema', expect.anything(), 'sales');
       expect(usedRequest.input).toHaveBeenCalledWith('table', expect.anything(), 'Orders');
