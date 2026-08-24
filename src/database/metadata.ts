@@ -234,7 +234,7 @@ export class MetadataService {
         c.column_id AS [ordinal],
         c.name AS [columnName],
         ty.name AS [typeName],
-        TYPE_SCHEMA_NAME(c.user_type_id) AS [typeSchema],
+        ts.name AS [typeSchema],
         c.max_length AS [maxLength],
         c.precision,
         c.scale,
@@ -252,6 +252,7 @@ export class MetadataService {
       INNER JOIN sys.schemas AS s ON s.schema_id = t.schema_id
       INNER JOIN sys.columns AS c ON c.object_id = t.object_id
       INNER JOIN sys.types AS ty ON ty.user_type_id = c.user_type_id
+      INNER JOIN sys.schemas AS ts ON ts.schema_id = ty.schema_id
       LEFT JOIN sys.identity_columns AS ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id
       LEFT JOIN sys.computed_columns AS cc ON cc.object_id = c.object_id AND cc.column_id = c.column_id
       LEFT JOIN sys.default_constraints AS dc ON dc.object_id = c.default_object_id

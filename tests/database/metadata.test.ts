@@ -100,6 +100,9 @@ describe('MetadataService', () => {
     const columnsQuery = vi.mocked(used[0]!.query).mock.calls[0]?.[0] ?? '';
     expect(columnsQuery).toContain('c.collation_name AS [collation]');
     expect(columnsQuery).not.toContain('c.collation_name AS collation');
+    expect(columnsQuery).toContain('ts.name AS [typeSchema]');
+    expect(columnsQuery).toContain('INNER JOIN sys.schemas AS ts ON ts.schema_id = ty.schema_id');
+    expect(columnsQuery).not.toContain('TYPE_SCHEMA_NAME');
     expect(columnsQuery).toContain('LEFT JOIN sys.indexes AS pki');
     expect(columnsQuery).toContain('LEFT JOIN sys.index_columns AS pk');
     expect(columnsQuery).not.toContain(') AS pk');
