@@ -1,6 +1,6 @@
 # SQL Server MCP Server
 
-A TypeScript [Model Context Protocol](https://modelcontextprotocol.io/) server for exploring and interacting with a Microsoft SQL Server database. It discovers the schema dynamically, so it works with an existing POS database without hardcoded table or column names.
+A general-purpose TypeScript [Model Context Protocol](https://modelcontextprotocol.io/) server for Microsoft SQL Server schema discovery and create, read, update, and delete (CRUD) operations. It discovers the configured database schema dynamically without hardcoded table or column names. The package and MCP server name are `mcp-sql-server`.
 
 It supports local stdio clients and stateless Streamable HTTP, using the stable [MCP TypeScript SDK v2](https://ts.sdk.modelcontextprotocol.io/v2/) and a shared `mssql` connection pool. HTTP authentication can use a static bearer token, a cryptographically verified Cloudflare Access JWT, or both.
 
@@ -35,7 +35,7 @@ Edit `.env` with your SQL Server connection details:
 ```dotenv
 DB_SERVER=localhost
 DB_PORT=1433
-DB_DATABASE=PosDb
+DB_DATABASE=AppDb
 DB_USER=mcp_user
 DB_PASSWORD=replace_me
 DB_ENCRYPT=true
@@ -130,14 +130,14 @@ Build first, then add a server entry using the absolute path to `dist/src/index.
 ```json
 {
   "mcpServers": {
-    "pos-sql-server": {
+    "sql-server": {
       "command": "node",
       "args": ["F:\\Codes\\MCP\\dist\\src\\index.js"],
       "env": {
         "MCP_TRANSPORT": "stdio",
         "DB_SERVER": "localhost",
         "DB_PORT": "1433",
-        "DB_DATABASE": "PosDb",
+        "DB_DATABASE": "AppDb",
         "DB_USER": "mcp_user",
         "DB_PASSWORD": "replace_me"
       }
@@ -183,20 +183,20 @@ Authentication applies only to HTTP. Stdio continues to rely on the local proces
 Use an endpoint that is not intercepted by a Cloudflare Access application. The origin server still validates the static token in `bearer` or `hybrid` mode:
 
 ```powershell
-$env:POS_SQL_MCP_TOKEN = "the_same_value_as_the_server_MCP_AUTH_TOKEN"
-codex mcp add pos_sql_http `
+$env:SQL_MCP_TOKEN = "the_same_value_as_the_server_MCP_AUTH_TOKEN"
+codex mcp add sql_http `
   --url https://mcp-dev.example.com/mcp `
-  --bearer-token-env-var POS_SQL_MCP_TOKEN
+  --bearer-token-env-var SQL_MCP_TOKEN
 codex mcp list
 ```
 
-Codex stores the environment-variable name, not the token value. The Codex process must inherit `POS_SQL_MCP_TOKEN` whenever it connects; restart Codex from the configured shell after changing it.
+Codex stores the environment-variable name, not the token value. The Codex process must inherit `SQL_MCP_TOKEN` whenever it connects; restart Codex from the configured shell after changing it.
 
 Quick bearer checks:
 
 ```powershell
 curl.exe -i https://mcp-dev.example.com/mcp
-curl.exe -i -H "Authorization: Bearer $env:POS_SQL_MCP_TOKEN" https://mcp-dev.example.com/mcp
+curl.exe -i -H "Authorization: Bearer $env:SQL_MCP_TOKEN" https://mcp-dev.example.com/mcp
 ```
 
 The first response must be `401`. The second may be an MCP method/content-type response rather than `200` for a bare GET, but it must not be the origin authentication `401`.
@@ -234,7 +234,7 @@ MCP_HTTP_ALLOWED_HOSTS=mcp-dev.example.com,mcpsql01.example.com
    - `mcpsql01.example.com` for Access Managed OAuth traffic.
 2. Keep the developer hostname outside the Access application. If organizational policy requires Access everywhere, use a narrowly scoped bypass that is appropriate for your environment; an Access-protected hostname will process the `Authorization` header before the origin can validate the arbitrary static bearer token.
 3. Go to **Zero Trust > Access controls > Applications** and create or edit a self-hosted/MCP application for only `mcpsql01.example.com`. Protect the whole OAuth hostname so Cloudflare's `/.well-known/` discovery endpoints and `/mcp` share the same application.
-4. Add an **Allow** policy for the exact users, groups, identity provider, and any device posture your POS access policy requires. Do not create a broad public bypass on this OAuth hostname.
+4. Add an **Allow** policy for the exact users, groups, identity provider, and any device posture your database access policy requires. Do not create a broad public bypass on this OAuth hostname.
 5. On the application's **Advanced settings** tab, enable **Managed OAuth**.
 6. Configure Managed OAuth redirect settings:
    - Allow the exact redirect URI displayed or dynamically registered by ChatGPT during app creation; do not guess a ChatGPT callback URI.
@@ -280,37 +280,41 @@ https://example.cloudflareaccess.com/cdn-cgi/access/certs
 
 ## Tool reference
 
-| Tool                       | Purpose                                                                                              |
-| -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `list_tables`              | List user tables with schema, approximate row count, and description.                                |
-| `list_views`               | List user views with schema and description.                                                         |
-| `search_tables`            | Search table/view names using a literal substring.                                                   |
-| `describe_table`           | Return detailed columns, primary key, and incoming/outgoing foreign keys.                            |
-| `get_database_schema`      | Return a bounded page of tables/views with columns, primary-key ordinals, and outgoing foreign keys. |
-| `execute_select`           | Execute one SELECT or SELECT-ending CTE with parameters and result pagination.                       |
-| `execute_insert`           | Execute one INSERT and return affected rows plus `OUTPUT` recordsets.                                |
-| `execute_update`           | Execute one UPDATE and return affected rows plus `OUTPUT` recordsets.                                |
-| `execute_delete`           | Execute one DELETE; registered only when `DB_ALLOW_DELETE=true`.                                     |
-| `execute_create_table`     | Execute one CREATE TABLE; registered only when `DB_ALLOW_DDL=true`.                                  |
-| `execute_alter_table`      | Execute one ALTER TABLE; registered only when `DB_ALLOW_DDL=true`.                                   |
-| `execute_stored_procedure` | Execute a one- or two-part procedure name with typed parameters.                                     |
-| `execute_transaction`      | Execute supported ordered statements atomically.                                                     |
-| `health_check`             | Check SQL connectivity and the pool state.                                                           |
-| `get_database_version`     | Return version, product level, edition, and engine information.                                      |
-| `explain_query`            | Return the estimated XML plan for a SELECT without executing its data query.                         |
+Tool IDs remain unchanged for existing clients. For CRUD, use `execute_insert` to create records, `execute_select` to read, `execute_update` to modify, and `execute_delete` to remove. DELETE is disabled by default.
+
+| Tool                       | Purpose                                                                                                    |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `list_tables`              | List user tables with schema, approximate row count, and description.                                      |
+| `list_views`               | List user views with schema and description.                                                               |
+| `search_tables`            | Search schema and table/view names using a literal substring; case sensitivity follows database collation. |
+| `describe_table`           | Return detailed columns, primary key, and incoming/outgoing foreign keys.                                  |
+| `get_database_schema`      | Return a bounded page of tables/views with columns, primary-key ordinals, and outgoing foreign keys.       |
+| `execute_select`           | Execute one SELECT or SELECT-ending CTE with parameters and result pagination.                             |
+| `execute_insert`           | Execute one INSERT and return affected rows plus `OUTPUT` recordsets.                                      |
+| `execute_update`           | Execute one UPDATE and return affected rows plus `OUTPUT` recordsets.                                      |
+| `execute_delete`           | Execute one DELETE; registered only when `DB_ALLOW_DELETE=true`.                                           |
+| `execute_create_table`     | Execute one CREATE TABLE; registered only when `DB_ALLOW_DDL=true`.                                        |
+| `execute_alter_table`      | Execute one ALTER TABLE; registered only when `DB_ALLOW_DDL=true`.                                         |
+| `execute_stored_procedure` | Execute a one- or two-part procedure name with typed parameters.                                           |
+| `execute_transaction`      | Execute supported ordered statements atomically.                                                           |
+| `health_check`             | Check SQL connectivity and the pool state.                                                                 |
+| `get_database_version`     | Return version, product level, edition, and engine information.                                            |
+| `explain_query`            | Return the estimated XML plan for a SELECT without executing its data query.                               |
 
 ## Parameterized SQL
 
 Use `@name` placeholders in SQL and pass values separately. Never concatenate model-provided values into SQL text.
 
+The following examples use illustrative tables and procedures; discover your database schema and adapt the SQL before executing them.
+
 ### SELECT
 
 ```json
 {
-  "sql": "SELECT Id, Name, Price FROM dbo.Items WHERE StoreId = @storeId AND Price >= @minimumPrice ORDER BY Id",
+  "sql": "SELECT Id, Name, Budget FROM dbo.Projects WHERE OwnerId = @ownerId AND Budget >= @minimumBudget ORDER BY Id",
   "parameters": [
-    { "name": "storeId", "type": "Int", "value": 12 },
-    { "name": "minimumPrice", "type": "Decimal", "precision": 19, "scale": 4, "value": 5.5 }
+    { "name": "ownerId", "type": "Int", "value": 12 },
+    { "name": "minimumBudget", "type": "Decimal", "precision": 19, "scale": 4, "value": 5.5 }
   ],
   "offset": 0,
   "limit": 100
@@ -321,10 +325,10 @@ Use `@name` placeholders in SQL and pass values separately. Never concatenate mo
 
 ```json
 {
-  "sql": "INSERT dbo.Items (Name, Price) OUTPUT inserted.Id, inserted.Name VALUES (@name, @price)",
+  "sql": "INSERT dbo.Projects (Name, Budget) OUTPUT inserted.Id, inserted.Name VALUES (@name, @budget)",
   "parameters": [
-    { "name": "name", "type": "NVarChar", "length": 200, "value": "Coffee" },
-    { "name": "price", "type": "Decimal", "precision": 19, "scale": 4, "value": 3.75 }
+    { "name": "name", "type": "NVarChar", "length": 200, "value": "Website redesign" },
+    { "name": "budget", "type": "Decimal", "precision": 19, "scale": 4, "value": 3.75 }
   ]
 }
 ```
@@ -333,11 +337,22 @@ Use `@name` placeholders in SQL and pass values separately. Never concatenate mo
 
 ```json
 {
-  "sql": "UPDATE dbo.Items SET Price = @price WHERE Id = @id",
+  "sql": "UPDATE dbo.Projects SET Budget = @budget WHERE Id = @id",
   "parameters": [
-    { "name": "price", "type": "Decimal", "precision": 19, "scale": 4, "value": 4.25 },
+    { "name": "budget", "type": "Decimal", "precision": 19, "scale": 4, "value": 4.25 },
     { "name": "id", "type": "Int", "value": 42 }
   ]
+}
+```
+
+### DELETE
+
+Enable deletion with `DB_ALLOW_WRITE=true` and `DB_ALLOW_DELETE=true`, then restart the server. Call `execute_delete` with a targeted statement:
+
+```json
+{
+  "sql": "DELETE FROM dbo.Projects WHERE Id = @id",
+  "parameters": [{ "name": "id", "type": "Int", "value": 42 }]
 }
 ```
 
@@ -354,13 +369,13 @@ Use `execute_create_table` or `execute_alter_table` with exactly one matching st
 
 ```json
 {
-  "sql": "CREATE TABLE inventory.Categories (Id int IDENTITY(1,1) NOT NULL PRIMARY KEY, Name nvarchar(100) NOT NULL)"
+  "sql": "CREATE TABLE dbo.Categories (Id int IDENTITY(1,1) NOT NULL PRIMARY KEY, Name nvarchar(100) NOT NULL)"
 }
 ```
 
 ```json
 {
-  "sql": "ALTER TABLE inventory.Categories ADD IsActive bit NOT NULL CONSTRAINT DF_Categories_IsActive DEFAULT (1)"
+  "sql": "ALTER TABLE dbo.Categories ADD IsActive bit NOT NULL CONSTRAINT DF_Categories_IsActive DEFAULT (1)"
 }
 ```
 
@@ -372,7 +387,7 @@ Pass date/time values as ISO-8601 strings with an explicit date/time SQL type. P
 
 ```json
 {
-  "name": "soldAt",
+  "name": "createdAt",
   "type": "DateTime2",
   "scale": 3,
   "value": "2026-08-06T12:30:00.000Z"
@@ -391,11 +406,11 @@ Use a schema-qualified name where possible. Output parameters require an explici
 
 ```json
 {
-  "procedure": "sales.CloseBusinessDay",
+  "procedure": "dbo.SummarizeProjects",
   "parameters": [
-    { "name": "storeId", "direction": "input", "type": "Int", "value": 12 },
+    { "name": "ownerId", "direction": "input", "type": "Int", "value": 12 },
     {
-      "name": "closedSales",
+      "name": "totalBudget",
       "direction": "output",
       "type": "Decimal",
       "precision": 19,
@@ -417,18 +432,18 @@ The server validates every step before opening the transaction. All requests use
   "steps": [
     {
       "operation": "update",
-      "sql": "UPDATE dbo.Stock SET Quantity = Quantity - @quantity WHERE ItemId = @itemId",
+      "sql": "UPDATE dbo.Tasks SET HoursRemaining = HoursRemaining - @hours WHERE TaskId = @taskId",
       "parameters": [
-        { "name": "quantity", "type": "Int", "value": 2 },
-        { "name": "itemId", "type": "Int", "value": 42 }
+        { "name": "hours", "type": "Int", "value": 2 },
+        { "name": "taskId", "type": "Int", "value": 42 }
       ]
     },
     {
       "operation": "insert",
-      "sql": "INSERT dbo.StockMovements (ItemId, Quantity) VALUES (@itemId, @quantity)",
+      "sql": "INSERT dbo.TaskChanges (TaskId, HoursChange) VALUES (@taskId, @hours)",
       "parameters": [
-        { "name": "itemId", "type": "Int", "value": 42 },
-        { "name": "quantity", "type": "Int", "value": -2 }
+        { "name": "taskId", "type": "Int", "value": 42 },
+        { "name": "hours", "type": "Int", "value": -2 }
       ]
     }
   ]
@@ -444,9 +459,9 @@ DELETE steps require both writes and DELETE to be enabled.
 This output bound does not make an unbounded SQL query efficient. For large tables, put deterministic pagination in SQL:
 
 ```sql
-SELECT Id, ReceiptNumber, Total
-FROM sales.Receipts
-WHERE StoreId = @storeId
+SELECT Id, Name, Budget
+FROM dbo.Projects
+WHERE OwnerId = @ownerId
 ORDER BY Id
 OFFSET @sqlOffset ROWS
 FETCH NEXT @pageSize ROWS ONLY
@@ -484,7 +499,7 @@ npm run build
 npm run verify
 ```
 
-The test suite uses mocked SQL boundaries plus in-process and spawned MCP clients; it does not require access to the POS database.
+The test suite uses mocked SQL boundaries plus in-process and spawned MCP clients; it does not require access to a live database.
 
 You can also inspect the stdio server interactively:
 

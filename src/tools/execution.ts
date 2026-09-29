@@ -41,9 +41,9 @@ export function registerExecutionTools(
   server.registerTool(
     'execute_select',
     {
-      title: 'Execute a SELECT query',
+      title: 'Read records with SELECT',
       description:
-        'Execute one SELECT or CTE query. Put values in named parameters instead of interpolating them into SQL.',
+        'Read records using one SQL Server SELECT statement or SELECT-ending CTE. Bind values with @name placeholders and the parameters array. Supports offset and limit; returns bounded recordsets, row counts, truncation status, and execution time.',
       inputSchema: selectSchema,
       annotations: readOnly
     },
@@ -60,8 +60,11 @@ export function registerExecutionTools(
     server.registerTool(
       `execute_${operation}`,
       {
-        title: `Execute an ${operation.toUpperCase()} statement`,
-        description: `Execute one parameterized ${operation.toUpperCase()} statement and return affected rows plus OUTPUT results.`,
+        title: operation === 'insert' ? 'Create records with INSERT' : 'Update records with UPDATE',
+        description:
+          operation === 'insert'
+            ? 'Create records using one SQL Server INSERT statement. Bind values with @name placeholders and the parameters array. Returns affected row counts and bounded OUTPUT recordsets when requested by the SQL. Requires DB_ALLOW_WRITE=true.'
+            : 'Modify records using one SQL Server UPDATE statement. Use a WHERE clause to target the intended records and bind values with @name placeholders and the parameters array. Returns affected row counts and bounded OUTPUT recordsets when requested by the SQL. Requires DB_ALLOW_WRITE=true.',
         inputSchema: mutationSchema,
         annotations: mutation
       },
@@ -79,9 +82,9 @@ export function registerExecutionTools(
     server.registerTool(
       'execute_delete',
       {
-        title: 'Execute a DELETE statement',
+        title: 'Delete records with DELETE',
         description:
-          'Execute one parameterized DELETE statement. This tool is configuration-gated.',
+          'Remove records using one SQL Server DELETE statement. Use a WHERE clause to target the intended records and bind values with @name placeholders and the parameters array. Returns affected row counts and bounded OUTPUT recordsets when requested by the SQL. Available when DB_ALLOW_DELETE=true; also requires DB_ALLOW_WRITE=true.',
         inputSchema: mutationSchema,
         annotations: {
           readOnlyHint: false,
@@ -119,7 +122,7 @@ export function registerExecutionTools(
         operation.toolName,
         {
           title: operation.title,
-          description: `Execute one ${operation.label} statement. This tool is configuration-gated.`,
+          description: `Execute one SQL Server ${operation.label} statement to manage a table in the configured database. Available when DB_ALLOW_DDL=true; also requires DB_ALLOW_WRITE=true.`,
           inputSchema: ddlSchema,
           annotations: {
             readOnlyHint: false,
@@ -144,7 +147,7 @@ export function registerExecutionTools(
     {
       title: 'Execute a stored procedure',
       description:
-        'Execute a schema-qualified stored procedure with typed input, output, or input-output parameters.',
+        'Execute a SQL Server stored procedure by one- or two-part name, preferably schema-qualified, with typed input, output, or input-output parameters. Returns bounded recordsets, affected row counts, output parameters, and the return value. Procedures may modify data; requires DB_ALLOW_PROCEDURES=true.',
       inputSchema: procedureSchema,
       annotations: {
         readOnlyHint: false,
@@ -167,7 +170,7 @@ export function registerExecutionTools(
     {
       title: 'Execute a SQL transaction',
       description:
-        'Execute ordered SELECT, INSERT, UPDATE, or enabled DELETE statements atomically; all steps roll back on failure.',
+        'Run an ordered batch of parameterized SELECT, INSERT, UPDATE, or enabled DELETE statements in one SQL Server transaction. Commits all steps on success and rolls back on failure. Requires DB_ALLOW_TRANSACTIONS=true; write and delete steps also require their corresponding feature permissions.',
       inputSchema: transactionSchema,
       annotations: {
         readOnlyHint: false,

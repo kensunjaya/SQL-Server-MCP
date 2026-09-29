@@ -60,7 +60,7 @@ export const ddlSchema = z
 
 export const procedureSchema = z
   .object({
-    procedure: z.string().trim().min(1).describe('Procedure name such as sales.CloseDay'),
+    procedure: z.string().trim().min(1).describe('Procedure name such as dbo.ProcessRecords'),
     parameters: z.array(procedureParameterSchema).default([])
   })
   .strict();

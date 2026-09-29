@@ -28,7 +28,8 @@ export function registerDiscoveryTools(
     'list_tables',
     {
       title: 'List database tables',
-      description: 'List user tables dynamically, including schema and approximate row count.',
+      description:
+        'Discover user tables in the configured SQL Server database, with schema names, descriptions, and approximate row counts. Supports offset and limit pagination.',
       inputSchema: paginationSchema,
       annotations: readOnly
     },
@@ -42,7 +43,8 @@ export function registerDiscoveryTools(
     'list_views',
     {
       title: 'List database views',
-      description: 'List user views dynamically, including their schemas.',
+      description:
+        'Discover user views in the configured SQL Server database, with schema names and descriptions. Supports offset and limit pagination.',
       inputSchema: paginationSchema,
       annotations: readOnly
     },
@@ -57,7 +59,7 @@ export function registerDiscoveryTools(
     {
       title: 'Search tables and views',
       description:
-        'Search user table and view names by a literal case-insensitive database pattern.',
+        'Find user tables and views by a literal substring of their schema or object names. Filter by objectType and paginate with offset and limit. Case sensitivity follows the database collation.',
       inputSchema: searchSchema,
       annotations: readOnly
     },
@@ -72,7 +74,7 @@ export function registerDiscoveryTools(
     {
       title: 'Describe a table',
       description:
-        'Describe columns, SQL types, nullability, defaults, primary key, identity/computed fields, and incoming/outgoing foreign keys.',
+        'Inspect a user table before CRUD operations: columns, SQL types, nullability, defaults, primary key, identity and computed fields, and incoming and outgoing foreign keys. Specify schema and table; schema defaults to dbo.',
       inputSchema: describeTableSchema,
       annotations: readOnly
     },
@@ -86,7 +88,8 @@ export function registerDiscoveryTools(
     'get_database_schema',
     {
       title: 'Get database schema',
-      description: 'Return a paginated overview of user tables, views, and their columns.',
+      description:
+        'Explore the configured database with a paginated overview of user tables and views, including columns, SQL types, primary-key ordinals, and outgoing foreign keys.',
       inputSchema: paginationSchema,
       annotations: readOnly
     },

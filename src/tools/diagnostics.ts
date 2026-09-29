@@ -27,7 +27,8 @@ export function registerDiagnosticTools(
     'health_check',
     {
       title: 'Check database health',
-      description: 'Check MCP server and SQL Server connectivity without exposing credentials.',
+      description:
+        'Check connectivity to the configured SQL Server database and return its name, connection pool state, and execution time without exposing credentials.',
       inputSchema: z.object({}).strict(),
       annotations: readOnly
     },
@@ -42,7 +43,7 @@ export function registerDiagnosticTools(
     {
       title: 'Get SQL Server version',
       description:
-        'Return SQL Server product version, level, edition, engine edition, and version text.',
+        'Identify the connected SQL Server instance by its product version, product level, edition, engine edition, and full version text.',
       inputSchema: z.object({}).strict(),
       annotations: readOnly
     },
@@ -60,7 +61,7 @@ export function registerDiagnosticTools(
     {
       title: 'Explain a SELECT query',
       description:
-        'Compile a parameterized SELECT and return its estimated XML plan without executing it.',
+        'Inspect the estimated execution plan for one parameterized SQL Server SELECT statement or SELECT-ending CTE without executing the data query. Returns the XML plan; requires SQL Server SHOWPLAN permission.',
       inputSchema: explainSchema,
       annotations: readOnly
     },

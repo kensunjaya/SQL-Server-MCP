@@ -1,7 +1,7 @@
 {
-  "name": "mcp-sql-server-pos",
+  "name": "mcp-sql-server",
   "version": "1.0.0",
-  "description": "Model Context Protocol server for exploring and interacting with Microsoft SQL Server",
+  "description": "General-purpose Microsoft SQL Server MCP server for schema discovery and parameterized CRUD operations",
   "type": "module",
   "main": "dist/src/index.js",
   "bin": {
@@ -28,7 +28,7 @@
     "model-context-protocol",
     "sql-server",
     "mssql",
-    "pos"
+    "crud"
   ],
   "license": "MIT",
   "dependencies": {
