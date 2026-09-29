@@ -1,4 +1,4 @@
-# SQL Server MCP Server
+# MSSQL MCP Server
 
 A general-purpose TypeScript [Model Context Protocol](https://modelcontextprotocol.io/) server for Microsoft SQL Server schema discovery and create, read, update, and delete (CRUD) operations. It discovers the configured database schema dynamically without hardcoded table or column names. The package and MCP server name are `mcp-sql-server`.
 
